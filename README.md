@@ -260,10 +260,28 @@ Only the keys you requested. Plus `symbol`, `timeframe`, `candles`. That's it.
 
 | Status | Reason |
 |--------|--------|
-| 400 | empty `bars`, empty `indicators`, or unknown indicator `type` |
+| 400 | empty `bars`, empty `indicators`, unknown indicator `type`, or **insufficient bars for one or more requested indicators** (structured body — see below) |
 | 413 | `len(bars) > MAX_BARS` |
-| 422 | `len(bars) < MIN_BARS`, or malformed bar payload |
+| 422 | malformed bar payload (caught by Pydantic) |
 | 500 | internal computation error (should never happen — open an issue) |
+
+When you ask for an indicator that needs more bars than you sent (e.g. `sma` `length=200` with 100 bars), the request is rejected up front — no silent all-null series. The response lists **every** under-fed indicator at once so you can fix the whole call in one round trip:
+
+```json
+{
+  "detail": {
+    "error": "insufficient_bars",
+    "message": "insufficient bars: have 30, but: slowSma (type=sma) needs 200, longRsi (type=rsi) needs 51",
+    "available": 30,
+    "deficits": [
+      {"outputKey": "slowSma", "type": "sma", "required": 200, "available": 30},
+      {"outputKey": "longRsi", "type": "rsi", "required": 51,  "available": 30}
+    ]
+  }
+}
+```
+
+The per-indicator requirement is derived from its params (`length`, `slow`, `signal`, etc.) — not a global floor. SMC-backed outputs (`orderBlocks`, `fvgs`, `bosChoch`, summaries, divergences, …) share a baseline floor of `MIN_BARS` (default 50) because the analysis pipeline assumes meaningful history.
 
 ## Configuration
 
@@ -273,7 +291,7 @@ All env-driven. Sensible defaults. Nothing to tune for a first run.
 |----------|---------|-------------|
 | `LOG_LEVEL` | `INFO` | Standard Python logging level. |
 | `MAX_BARS` | `5000` | Reject requests with more bars than this (HTTP 413). |
-| `MIN_BARS` | `50` | Reject requests with fewer bars than this (HTTP 422). Indicators need warmup. |
+| `MIN_BARS` | `50` | Baseline floor for SMC-backed outputs (`orderBlocks`, `fvgs`, summaries, divergences, …) and the fallback requirement for any indicator not explicitly listed in the per-indicator requirement table. Series indicators (`sma`, `rsi`, `macd`, …) compute their own min from params. |
 | `WORKERS` | `2` | uvicorn worker count. |
 
 ## Architecture

@@ -16,7 +16,11 @@ from fastapi.responses import JSONResponse
 from numpyencoder import NumpyEncoder
 
 from . import __version__, config
-from .compute import UnknownIndicatorError, compute_dataframe
+from .compute import (
+    InsufficientBarsError,
+    UnknownIndicatorError,
+    compute_dataframe,
+)
 from .schemas import ComputeRequest, HealthResponse
 
 
@@ -82,15 +86,19 @@ def compute(req: ComputeRequest) -> JSONResponse:
         )
     except UnknownIndicatorError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except InsufficientBarsError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "insufficient_bars",
+                "message": str(e),
+                "available": e.available,
+                "deficits": e.deficits,
+            },
+        ) from e
     except Exception as e:
         log.exception("compute failed for %s %s", req.symbol, req.timeframe)
         raise HTTPException(status_code=500, detail=f"compute failed: {e}") from e
-
-    if result is None:
-        raise HTTPException(
-            status_code=422,
-            detail=f"insufficient bars: {len(req.bars)} (need >= {config.MIN_BARS})",
-        )
 
     body = json.dumps(result, cls=NumpyEncoder)
     return JSONResponse(content=_camelize_keys(json.loads(body)))

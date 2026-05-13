@@ -31,7 +31,7 @@ def test_health() -> None:
         ("empty_bars",        lambda _: {"bars": [], "indicators": {"rsi": True}},     400, "bars"),
         ("empty_indicators",  lambda b: {"bars": b, "indicators": {}},                  400, "indicators"),
         ("unknown_indicator", lambda b: {"bars": b, "indicators": {"banana": True}},    400, "banana"),
-        ("too_few_bars",      lambda _: {"bars": [{"time": i, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "tickVolume": 0} for i in range(5)], "indicators": {"rsi": True}}, 422, "insufficient"),
+        ("too_few_bars",      lambda _: {"bars": [{"time": i, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "tickVolume": 0} for i in range(5)], "indicators": {"rsi": True}}, 400, "insufficient"),
     ],
     ids=lambda v: v if isinstance(v, str) else "",
 )
@@ -44,7 +44,9 @@ def test_compute_rejects_bad_request(
 ) -> None:
     r = client.post("/", json=body_fn(bars_500))
     assert r.status_code == status, r.text
-    assert detail_substr.lower() in r.json()["detail"].lower()
+    # detail is either a string (simple 4xx) or a structured dict (insufficient_bars);
+    # either way the substring must appear in the serialized form.
+    assert detail_substr.lower() in str(r.json()["detail"]).lower()
 
 
 # -----------------------------------------------------------------------------
