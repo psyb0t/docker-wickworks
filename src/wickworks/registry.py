@@ -87,7 +87,7 @@ def _mfi(ctx: Context, p: dict[str, Any]) -> list[float | None]:
 
 def _vwap(ctx: Context, p: dict[str, Any]) -> list[float | None]:
     anchor = str(p.get("anchor", "D"))
-    offset_sec = parse_duration(p.get("sessionOffset", 0))
+    offset_sec = parse_duration(p.get("sessionOffset", p.get("session_offset", 0)))
     vol_col = "tick_volume" if "tick_volume" in ctx.df.columns else "volume"
     # pandas_ta vwap groups by anchor on the DatetimeIndex. Shifting the index
     # by `sessionOffset` moves session boundaries away from UTC midnight.

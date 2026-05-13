@@ -135,3 +135,36 @@ def test_compute_multiple_stochs_produce_distinct_series(
     assert body["stochFast"]["k"] != body["stochSlow"]["k"]
 
 
+# -----------------------------------------------------------------------------
+# v0.3.1 — schema/runtime parity fixes.
+# -----------------------------------------------------------------------------
+
+
+def test_vwap_accepts_session_offset_snake_case(
+    bars_500: list[dict[str, Any]],
+) -> None:
+    """schema.json advertises x-aliases: [session_offset] on VwapRequest.
+    Confirm the registry actually honors it — same shifted result whether the
+    caller passes camelCase or snake_case."""
+    camel = client.post(
+        "/",
+        json={"bars": bars_500, "indicators": {"vwap": {"sessionOffset": "2h"}}},
+    )
+    snake = client.post(
+        "/",
+        json={"bars": bars_500, "indicators": {"vwap": {"session_offset": "2h"}}},
+    )
+    assert camel.status_code == 200, camel.text
+    assert snake.status_code == 200, snake.text
+    assert camel.json()["vwap"] == snake.json()["vwap"]
+
+
+@pytest.mark.parametrize("field", ["tickVolume", "realVolume", "tick_volume", "real_volume"])
+def test_bar_rejects_negative_volume(field: str) -> None:
+    """schema.json declares minimum: 0 on Bar.tickVolume / realVolume.
+    Pydantic now enforces ge=0 — negatives must 422 instead of silently going through."""
+    bar = {"time": 1, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, field: -1}
+    r = client.post("/", json={"bars": [bar], "indicators": {"rsi": True}})
+    assert r.status_code == 422, r.text
+
+

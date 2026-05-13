@@ -3,4 +3,4 @@
 Bars in, indicators + SMC objects out. No scoring, no signals, no opinion.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"

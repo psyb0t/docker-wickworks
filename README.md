@@ -82,7 +82,7 @@ curl -s http://localhost:8000/health
 ```
 
 ```json
-{ "ok": true, "version": "0.3.0" }
+{ "ok": true, "version": "0.3.1" }
 ```
 
 ### `POST /` — compute
@@ -160,8 +160,6 @@ The outputs below map to a handful of recurring trading ideas. If you've used an
 - **Series** — one value per bar (`number | null`), aligned 1:1 with input `bars`. Warmup positions are `null`.
 - **FlagSeries** — one `0/1` integer per bar.
 - **DirectionSeries** — one `-1/+1` integer per bar (`1` = bullish/long, `-1` = bearish/short).
-
-Snake_case aliases are accepted for every camelCase param (`smoothK` ↔ `smooth_k`, `rsiLength` ↔ `rsi_length`, etc.). Aliases are noted in tables where present.
 
 Indicators below are grouped by what they tell a trader, not by parameter shape. Each subsection starts with a one-paragraph framing of the category, then lists every indicator in it with a short "what it is / when to use it" blurb.
 
@@ -247,11 +245,11 @@ Williams' combo of three timeframes (short/medium/long) blended into one 0–100
 
 "Where is the close within the recent high-to-low range?" Returns `%K` (raw position) and `%D` (smoothed `%K`). Classic signals: `%K` crossing `%D` is the trigger; both lines above 80 = overbought zone, below 20 = oversold zone. Like RSI but more reactive — fires more often, false-positives more often too.
 
-| Param     | Type        | Default | Aliases              | Description           |
-| --------- | ----------- | ------: | -------------------- | --------------------- |
-| `k`       | integer ≥ 1 |    `14` |                      | Lookback for raw `%K` |
-| `d`       | integer ≥ 1 |     `3` |                      | `%D` smoothing        |
-| `smoothK` | integer ≥ 1 |     `3` | `smooth_k`, `smooth` | `%K` smoothing        |
+| Param     | Type        | Default | Description           |
+| --------- | ----------- | ------: | --------------------- |
+| `k`       | integer ≥ 1 |    `14` | Lookback for raw `%K` |
+| `d`       | integer ≥ 1 |     `3` | `%D` smoothing        |
+| `smoothK` | integer ≥ 1 |     `3` | `%K` smoothing        |
 
 **Returns:** `{ k, d }` — each a Series (0–100).
 
@@ -259,12 +257,12 @@ Williams' combo of three timeframes (short/medium/long) blended into one 0–100
 
 Stochastic formula applied to RSI values instead of price. Doubly sensitive — fires far more frequently than vanilla stoch and is especially good at picking turning points inside a ranging move. Pair with a trend filter; on its own it overtrades.
 
-| Param       | Type        | Default | Aliases      | Description                 |
-| ----------- | ----------- | ------: | ------------ | --------------------------- |
-| `length`    | integer ≥ 1 |    `14` |              | Stoch lookback over RSI     |
-| `rsiLength` | integer ≥ 1 |    `14` | `rsi_length` | RSI period (input to Stoch) |
-| `k`         | integer ≥ 1 |     `3` |              | `%K` smoothing              |
-| `d`         | integer ≥ 1 |     `3` |              | `%D` smoothing              |
+| Param       | Type        | Default | Description                 |
+| ----------- | ----------- | ------: | --------------------------- |
+| `length`    | integer ≥ 1 |    `14` | Stoch lookback over RSI     |
+| `rsiLength` | integer ≥ 1 |    `14` | RSI period (input to Stoch) |
+| `k`         | integer ≥ 1 |     `3` | `%K` smoothing              |
+| `d`         | integer ≥ 1 |     `3` | `%D` smoothing              |
 
 **Returns:** `{ k, d }` — each a Series (**0–1**, not 0–100).
 
@@ -458,10 +456,10 @@ ATR-based trailing band. When price is above, the band sits below acting as a tr
 
 Wilder's "stop and reverse" — dots that accelerate toward price during a trend, flipping to the other side when hit. **Tightest** of the trailing-stop family: dots get close to price fast. Brilliant in clean trends; disastrous in chop, where it whipsaws constantly.
 
-| Param | Type       | Default | Aliases | Description                 |
-| ----- | ---------- | ------: | ------- | --------------------------- |
-| `af`  | number > 0 |  `0.02` | `step`  | Acceleration step per bar   |
-| `max` | number > 0 |   `0.2` | `maxAf` | Maximum acceleration factor |
+| Param | Type       | Default | Description                 |
+| ----- | ---------- | ------: | --------------------------- |
+| `af`  | number > 0 |  `0.02` | Acceleration step per bar   |
+| `max` | number > 0 |   `0.2` | Maximum acceleration factor |
 
 **Returns:** `{ long, short, af, reversal }` — `long`/`short` are the SAR value on that leg (Series, `null` on the other); `af` is the current acceleration value (Series); `reversal` is a FlagSeries (`1` = trend flipped this bar).
 
@@ -469,11 +467,11 @@ Wilder's "stop and reverse" — dots that accelerate toward price during a trend
 
 ATR-based trailing stop pinned to the highest high (long leg) or lowest low (short leg) over a lookback window. Trails _further_ from price than supertrend — wider stops, fewer flips. Good for swing trading where you want to give the trend room to breathe.
 
-| Param        | Type        | Default | Aliases      | Description       |
-| ------------ | ----------- | ------: | ------------ | ----------------- |
-| `length`     | integer ≥ 1 |    `22` |              | High/low lookback |
-| `atrLength`  | integer ≥ 1 |    `22` | `atr_length` | ATR period        |
-| `multiplier` | number > 0  |   `2.0` |              | ATR multiplier    |
+| Param        | Type        | Default | Description       |
+| ------------ | ----------- | ------: | ----------------- |
+| `length`     | integer ≥ 1 |    `22` | High/low lookback |
+| `atrLength`  | integer ≥ 1 |    `22` | ATR period        |
+| `multiplier` | number > 0  |   `2.0` | ATR multiplier    |
 
 **Returns:** `{ long, short, direction }` — `long`/`short` are exit levels on that leg (Series, `null` otherwise); `direction` is DirectionSeries.
 
@@ -503,12 +501,12 @@ The flag fields form a per-bar state machine:
 - **`off`** — squeeze **just released** this bar (BB exited KC). Trigger bar.
 - **`no`** — no squeeze (default state).
 
-| Param      | Type        | Default | Aliases     |
-| ---------- | ----------- | ------: | ----------- |
-| `bbLength` | integer ≥ 1 |    `20` | `bb_length` |
-| `bbStd`    | number > 0  |   `2.0` | `bb_std`    |
-| `kcLength` | integer ≥ 1 |    `20` | `kc_length` |
-| `kcScalar` | number > 0  |   `1.5` | `kc_scalar` |
+| Param      | Type        | Default |
+| ---------- | ----------- | ------: |
+| `bbLength` | integer ≥ 1 |    `20` |
+| `bbStd`    | number > 0  |   `2.0` |
+| `kcLength` | integer ≥ 1 |    `20` |
+| `kcScalar` | number > 0  |   `1.5` |
 
 **Returns:** `{ value, on, off, no }` — `value` is signed momentum (Series, positive = bullish momentum during/after squeeze, negative = bearish); `on`/`off`/`no` are FlagSeries.
 
@@ -609,10 +607,10 @@ Compact summary of the chart's range: last 20 bars vs the full submitted history
 
 Equal-high / equal-low clusters where stop orders likely sit. Price often runs through these before reversing ("liquidity sweep") — a classic SMC trade-trigger pattern.
 
-| Param          | Type        | Default | Aliases         | Description                                        |
-| -------------- | ----------- | ------: | --------------- | -------------------------------------------------- |
-| `swingLength`  | integer ≥ 1 |    `10` | `swing_length`  | Swing-detection window                             |
-| `rangePercent` | number > 0  |  `0.01` | `range_percent` | Max % distance for equal-high / equal-low grouping |
+| Param          | Type        | Default | Description                                        |
+| -------------- | ----------- | ------: | -------------------------------------------------- |
+| `swingLength`  | integer ≥ 1 |    `10` | Swing-detection window                             |
+| `rangePercent` | number > 0  |  `0.01` | Max % distance for equal-high / equal-low grouping |
 
 **Returns:** array of SmcEvent.
 
@@ -620,9 +618,9 @@ Equal-high / equal-low clusters where stop orders likely sit. Price often runs t
 
 Prior-session / prior-period high and low markers (e.g. yesterday's daily H/L). High-attention reference levels — institutions and algos commonly target them.
 
-| Param       | Type   | Default | Aliases      | Description                                              |
-| ----------- | ------ | ------: | ------------ | -------------------------------------------------------- |
-| `timeFrame` | string |  `"1D"` | `time_frame` | Pandas resample frequency (`"1D"`, `"4H"`, `"1W"`, etc.) |
+| Param       | Type   | Default | Description                                              |
+| ----------- | ------ | ------: | -------------------------------------------------------- |
+| `timeFrame` | string |  `"1D"` | Pandas resample frequency (`"1D"`, `"4H"`, `"1W"`, etc.) |
 
 **Returns:** array of SmcEvent.
 
@@ -630,11 +628,11 @@ Prior-session / prior-period high and low markers (e.g. yesterday's daily H/L). 
 
 Marks bars belonging to a named trading session (London / NY / Tokyo / Sydney etc.). Use to filter signals to a specific session, or to overlay session-open/close moments.
 
-| Param       | Type              |    Default | Aliases      | Description                  |
-| ----------- | ----------------- | ---------: | ------------ | ---------------------------- |
-| `session`   | string            | `"London"` |              | Session name                 |
-| `startTime` | `"HH:MM"` \| null |   (preset) | `start_time` | Override session start (UTC) |
-| `endTime`   | `"HH:MM"` \| null |   (preset) | `end_time`   | Override session end (UTC)   |
+| Param       | Type              |    Default | Description                  |
+| ----------- | ----------------- | ---------: | ---------------------------- |
+| `session`   | string            | `"London"` | Session name                 |
+| `startTime` | `"HH:MM"` \| null | `start_time` | Override session start (UTC) |
+| `endTime`   | `"HH:MM"` \| null | `end_time`   | Override session end (UTC)   |
 
 **Returns:** array of SmcEvent.
 
@@ -642,9 +640,9 @@ Marks bars belonging to a named trading session (London / NY / Tokyo / Sydney et
 
 Fibonacci retracement events relative to the most recent swing. Trader use: standard Fib levels (38.2 / 50 / 61.8) on the active leg, computed automatically without you picking the swing endpoints.
 
-| Param         | Type        | Default | Aliases        | Description            |
-| ------------- | ----------- | ------: | -------------- | ---------------------- |
-| `swingLength` | integer ≥ 1 |    `10` | `swing_length` | Swing-detection window |
+| Param         | Type        | Default | Description            |
+| ------------- | ----------- | ------: | ---------------------- |
+| `swingLength` | integer ≥ 1 |    `10` | Swing-detection window |
 
 **Returns:** array of SmcEvent.
 
@@ -667,22 +665,22 @@ All are parameterless.
 
 ### Request fields
 
-| Field        | Type         | Default | Required | Aliases       | Description                                                                           |
-| ------------ | ------------ | ------- | -------- | ------------- | ------------------------------------------------------------------------------------- |
-| `bars`       | array of Bar | —       | **yes**  |               | OHLC(V) bars in chronological order. `len(bars) <= MAX_BARS` (default 5000).          |
-| `indicators` | object       | —       | **yes**  |               | Map of `outputKey → spec`. ≥ 1 entry.                                                 |
-| `symbol`     | string       | `""`    | no       |               | Echoed back in the response.                                                          |
-| `timeframe`  | string       | `""`    | no       |               | Echoed back in the response.                                                          |
-| `recentBars` | integer ≥ 1  | `10`    | no       | `recent_bars` | Reserved for future signal-tagging windows. Currently inert — no output type is recency-tagged. |
+| Field        | Type         | Default | Required | Description                                                                           |
+| ------------ | ------------ | ------- | -------- | ------------------------------------------------------------------------------------- |
+| `bars`       | array of Bar | —       | **yes**  | OHLC(V) bars in chronological order. `len(bars) <= MAX_BARS` (default 5000).          |
+| `indicators` | object       | —       | **yes**  | Map of `outputKey → spec`. ≥ 1 entry.                                                 |
+| `symbol`     | string       | `""`    | no       | Echoed back in the response.                                                          |
+| `timeframe`  | string       | `""`    | no       | Echoed back in the response.                                                          |
+| `recentBars` | integer ≥ 1  | `10`    | no       | Reserved for future signal-tagging windows. Currently inert — no output type is recency-tagged. |
 
 **Bar shape:**
 
-| Field                          | Type        | Default | Required | Aliases       | Description                                                                                                |
-| ------------------------------ | ----------- | ------- | -------- | ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `time`                         | integer     | —       | **yes**  |               | UTC unix seconds                                                                                           |
-| `open`, `high`, `low`, `close` | number      | —       | **yes**  |               | OHLC prices                                                                                                |
-| `tickVolume`                   | integer ≥ 0 | `0`     | no       | `tick_volume` | Canonical volume field. All volume-based indicators (VWAP, OBV, VWMA, MFI, CMF, AD, ADOSC, KVO) read this. |
-| `realVolume`                   | integer ≥ 0 | `0`     | no       | `real_volume` | Accepted for forward-compat. Indicator math currently reads `tickVolume`, not this.                        |
+| Field                          | Type        | Default | Required | Description                                                                                                |
+| ------------------------------ | ----------- | ------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `time`                         | integer     | —       | **yes**  | UTC unix seconds                                                                                           |
+| `open`, `high`, `low`, `close` | number      | —       | **yes**  | OHLC prices                                                                                                |
+| `tickVolume`                   | integer ≥ 0 | `0`     | no       | Canonical volume field. All volume-based indicators (VWAP, OBV, VWMA, MFI, CMF, AD, ADOSC, KVO) read this. |
+| `realVolume`                   | integer ≥ 0 | `0`     | no       | Accepted for forward-compat. Indicator math currently reads `tickVolume`, not this.                        |
 
 **Spec value for each `indicators` entry:**
 

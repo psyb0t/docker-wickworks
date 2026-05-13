@@ -2,53 +2,82 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/psyb0t/wickworks/schema.json",
   "title": "Wickworks Compute API",
-  "description": "Machine-readable contract for POST /. The wickworks HTTP surface is exactly two endpoints: POST / (compute) and GET /health. This schema validates the request body and describes the response envelope. Snake_case aliases (declared via x-aliases) are accepted on input wherever a camelCase field is named; responses always use the canonical camelCase form.",
+  "description": "Machine-readable contract for POST /. The wickworks HTTP surface is exactly two endpoints: POST / (compute) and GET /health. This schema validates the request body and describes the response envelope.",
   "type": "object",
   "$ref": "#/$defs/ComputeRequest",
-
   "$defs": {
     "Series": {
       "type": "array",
-      "items": { "type": ["number", "null"] },
+      "items": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
       "description": "One value per bar (aligned 1:1 with input bars). Warmup positions are null."
     },
     "FlagSeries": {
       "type": "array",
-      "items": { "type": "integer", "enum": [0, 1] },
+      "items": {
+        "type": "integer",
+        "enum": [
+          0,
+          1
+        ]
+      },
       "description": "Per-bar 0/1 flag."
     },
     "DirectionSeries": {
       "type": "array",
-      "items": { "type": "integer", "enum": [-1, 1] },
+      "items": {
+        "type": "integer",
+        "enum": [
+          -1,
+          1
+        ]
+      },
       "description": "Per-bar direction marker: 1 = bullish/long, -1 = bearish/short."
     },
-
     "Bar": {
       "type": "object",
       "properties": {
-        "time": { "type": "integer", "description": "UTC unix seconds." },
-        "open": { "type": "number" },
-        "high": { "type": "number" },
-        "low": { "type": "number" },
-        "close": { "type": "number" },
+        "time": {
+          "type": "integer",
+          "description": "UTC unix seconds."
+        },
+        "open": {
+          "type": "number"
+        },
+        "high": {
+          "type": "number"
+        },
+        "low": {
+          "type": "number"
+        },
+        "close": {
+          "type": "number"
+        },
         "tickVolume": {
           "type": "integer",
           "minimum": 0,
           "default": 0,
-          "description": "Canonical volume field. All volume-based indicators (VWAP, OBV, VWMA, MFI, CMF, AD, ADOSC, KVO) read this.",
-          "x-aliases": ["tick_volume"]
+          "description": "Canonical volume field. All volume-based indicators (VWAP, OBV, VWMA, MFI, CMF, AD, ADOSC, KVO) read this."
         },
         "realVolume": {
           "type": "integer",
           "minimum": 0,
           "default": 0,
-          "description": "Accepted for forward-compat. Indicator math currently reads tickVolume, not this.",
-          "x-aliases": ["real_volume"]
+          "description": "Accepted for forward-compat. Indicator math currently reads tickVolume, not this."
         }
       },
-      "required": ["time", "open", "high", "low", "close"]
+      "required": [
+        "time",
+        "open",
+        "high",
+        "low",
+        "close"
+      ]
     },
-
     "ComputeRequest": {
       "type": "object",
       "properties": {
@@ -66,13 +95,14 @@
           "type": "integer",
           "minimum": 1,
           "default": 10,
-          "description": "Reserved for future signal-tagging windows. Currently unused — wickworks emits primitives only and no output type is recency-tagged.",
-          "x-aliases": ["recent_bars"]
+          "description": "Reserved for future signal-tagging windows. Currently unused \u2014 wickworks emits primitives only and no output type is recency-tagged."
         },
         "bars": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/Bar" },
+          "items": {
+            "$ref": "#/$defs/Bar"
+          },
           "description": "OHLC(V) bars in chronological order. Length <= MAX_BARS (default 5000)."
         },
         "indicators": {
@@ -84,67 +114,153 @@
                 "const": true,
                 "description": "Run the indicator named by the output key with default params."
               },
-              { "$ref": "#/$defs/IndicatorSpec" }
+              {
+                "$ref": "#/$defs/IndicatorSpec"
+              }
             ]
           },
           "description": "Map of outputKey -> spec."
         }
       },
-      "required": ["bars", "indicators"]
+      "required": [
+        "bars",
+        "indicators"
+      ]
     },
-
     "IndicatorSpec": {
       "description": "Any indicator request spec. The `type` field discriminates; when omitted at runtime, the output-key name is used as the type.",
       "oneOf": [
-        { "$ref": "#/$defs/LengthBasedRequest" },
-        { "$ref": "#/$defs/ObvAdRequest" },
-        { "$ref": "#/$defs/AdoscRequest" },
-        { "$ref": "#/$defs/UoRequest" },
-        { "$ref": "#/$defs/VwapRequest" },
-        { "$ref": "#/$defs/MacdRequest" },
-        { "$ref": "#/$defs/StochRequest" },
-        { "$ref": "#/$defs/StochRsiRequest" },
-        { "$ref": "#/$defs/AdxRequest" },
-        { "$ref": "#/$defs/AroonRequest" },
-        { "$ref": "#/$defs/VortexRequest" },
-        { "$ref": "#/$defs/TsiRequest" },
-        { "$ref": "#/$defs/TrixRequest" },
-        { "$ref": "#/$defs/KvoRequest" },
-        { "$ref": "#/$defs/FisherRequest" },
-        { "$ref": "#/$defs/BbandsRequest" },
-        { "$ref": "#/$defs/KcRequest" },
-        { "$ref": "#/$defs/DonchianRequest" },
-        { "$ref": "#/$defs/SqueezeRequest" },
-        { "$ref": "#/$defs/SupertrendRequest" },
-        { "$ref": "#/$defs/PsarRequest" },
-        { "$ref": "#/$defs/IchimokuRequest" },
-        { "$ref": "#/$defs/ChandelierExitRequest" },
-        { "$ref": "#/$defs/OrderBlocksRequest" },
-        { "$ref": "#/$defs/FvgRequest" },
-        { "$ref": "#/$defs/BosChochRequest" },
-        { "$ref": "#/$defs/SwingLevelsRequest" },
-        { "$ref": "#/$defs/SrLevelsRequest" },
-        { "$ref": "#/$defs/RecentRangeRequest" },
-        { "$ref": "#/$defs/LiquidityRequest" },
-        { "$ref": "#/$defs/PreviousHighLowRequest" },
-        { "$ref": "#/$defs/SessionsRequest" },
-        { "$ref": "#/$defs/RetracementsRequest" },
-        { "$ref": "#/$defs/PriceRequest" },
-        { "$ref": "#/$defs/LevelsRequest" },
-        { "$ref": "#/$defs/MomentumRequest" },
-        { "$ref": "#/$defs/VolumeRequest" },
-        { "$ref": "#/$defs/PositionRequest" },
-        { "$ref": "#/$defs/SlopeRequest" },
-        { "$ref": "#/$defs/TypelessSpec" }
+        {
+          "$ref": "#/$defs/LengthBasedRequest"
+        },
+        {
+          "$ref": "#/$defs/ObvAdRequest"
+        },
+        {
+          "$ref": "#/$defs/AdoscRequest"
+        },
+        {
+          "$ref": "#/$defs/UoRequest"
+        },
+        {
+          "$ref": "#/$defs/VwapRequest"
+        },
+        {
+          "$ref": "#/$defs/MacdRequest"
+        },
+        {
+          "$ref": "#/$defs/StochRequest"
+        },
+        {
+          "$ref": "#/$defs/StochRsiRequest"
+        },
+        {
+          "$ref": "#/$defs/AdxRequest"
+        },
+        {
+          "$ref": "#/$defs/AroonRequest"
+        },
+        {
+          "$ref": "#/$defs/VortexRequest"
+        },
+        {
+          "$ref": "#/$defs/TsiRequest"
+        },
+        {
+          "$ref": "#/$defs/TrixRequest"
+        },
+        {
+          "$ref": "#/$defs/KvoRequest"
+        },
+        {
+          "$ref": "#/$defs/FisherRequest"
+        },
+        {
+          "$ref": "#/$defs/BbandsRequest"
+        },
+        {
+          "$ref": "#/$defs/KcRequest"
+        },
+        {
+          "$ref": "#/$defs/DonchianRequest"
+        },
+        {
+          "$ref": "#/$defs/SqueezeRequest"
+        },
+        {
+          "$ref": "#/$defs/SupertrendRequest"
+        },
+        {
+          "$ref": "#/$defs/PsarRequest"
+        },
+        {
+          "$ref": "#/$defs/IchimokuRequest"
+        },
+        {
+          "$ref": "#/$defs/ChandelierExitRequest"
+        },
+        {
+          "$ref": "#/$defs/OrderBlocksRequest"
+        },
+        {
+          "$ref": "#/$defs/FvgRequest"
+        },
+        {
+          "$ref": "#/$defs/BosChochRequest"
+        },
+        {
+          "$ref": "#/$defs/SwingLevelsRequest"
+        },
+        {
+          "$ref": "#/$defs/SrLevelsRequest"
+        },
+        {
+          "$ref": "#/$defs/RecentRangeRequest"
+        },
+        {
+          "$ref": "#/$defs/LiquidityRequest"
+        },
+        {
+          "$ref": "#/$defs/PreviousHighLowRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionsRequest"
+        },
+        {
+          "$ref": "#/$defs/RetracementsRequest"
+        },
+        {
+          "$ref": "#/$defs/PriceRequest"
+        },
+        {
+          "$ref": "#/$defs/LevelsRequest"
+        },
+        {
+          "$ref": "#/$defs/MomentumRequest"
+        },
+        {
+          "$ref": "#/$defs/VolumeRequest"
+        },
+        {
+          "$ref": "#/$defs/PositionRequest"
+        },
+        {
+          "$ref": "#/$defs/SlopeRequest"
+        },
+        {
+          "$ref": "#/$defs/TypelessSpec"
+        }
       ]
     },
-
     "TypelessSpec": {
       "type": "object",
-      "description": "Spec with no `type` field. The output-key name is used as the indicator type at runtime. Any indicator-specific params (length, fast, slow, …) may appear here.",
-      "not": { "required": ["type"] }
+      "description": "Spec with no `type` field. The output-key name is used as the indicator type at runtime. Any indicator-specific params (length, fast, slow, \u2026) may appear here.",
+      "not": {
+        "required": [
+          "type"
+        ]
+      }
     },
-
     "LengthBasedRequest": {
       "type": "object",
       "description": "27 indicators share this spec. Default `length` varies per type (see README table).",
@@ -189,321 +305,537 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "default": 0.015,
-          "description": "Scaling constant — cci only."
+          "description": "Scaling constant \u2014 cci only."
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "ObvAdRequest": {
       "type": "object",
       "description": "Cumulative volume lines (no params).",
-      "properties": { "type": { "enum": ["obv", "ad"] } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "obv",
+            "ad"
+          ]
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "AdoscRequest": {
       "type": "object",
       "description": "Chaikin Accumulation/Distribution Oscillator.",
       "properties": {
-        "type": { "const": "adosc" },
-        "fast": { "type": "integer", "minimum": 1, "default": 3 },
-        "slow": { "type": "integer", "minimum": 1, "default": 10 }
+        "type": {
+          "const": "adosc"
+        },
+        "fast": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        },
+        "slow": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "UoRequest": {
       "type": "object",
       "description": "Ultimate Oscillator.",
       "properties": {
-        "type": { "const": "uo" },
-        "fast": { "type": "integer", "minimum": 1, "default": 7 },
-        "medium": { "type": "integer", "minimum": 1, "default": 14 },
-        "slow": { "type": "integer", "minimum": 1, "default": 28 }
+        "type": {
+          "const": "uo"
+        },
+        "fast": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 7
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 14
+        },
+        "slow": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 28
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "VwapRequest": {
       "type": "object",
       "description": "Session-anchored VWAP.",
       "properties": {
-        "type": { "const": "vwap" },
-        "anchor": { "type": "string", "enum": ["D", "W", "M"], "default": "D" },
+        "type": {
+          "const": "vwap"
+        },
+        "anchor": {
+          "type": "string",
+          "enum": [
+            "D",
+            "W",
+            "M"
+          ],
+          "default": "D"
+        },
         "sessionOffset": {
-          "type": ["string", "number"],
+          "type": [
+            "string",
+            "number"
+          ],
           "default": "0s",
-          "description": "Go-style duration (\"-5h\", \"1h30m\") or seconds. Examples: -5h NY, -2h EET, 7h Tokyo.",
-          "x-aliases": ["session_offset"]
+          "description": "Go-style duration (\"-5h\", \"1h30m\") or seconds. Examples: -5h NY, -2h EET, 7h Tokyo."
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "MacdRequest": {
       "type": "object",
       "description": "MACD.",
       "properties": {
-        "type": { "const": "macd" },
-        "fast": { "type": "integer", "minimum": 1, "default": 12 },
-        "slow": { "type": "integer", "minimum": 1, "default": 26 },
-        "signal": { "type": "integer", "minimum": 1, "default": 9 }
+        "type": {
+          "const": "macd"
+        },
+        "fast": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 12
+        },
+        "slow": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 26
+        },
+        "signal": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 9
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "StochRequest": {
       "type": "object",
       "description": "Stochastic oscillator.",
       "properties": {
-        "type": { "const": "stoch" },
-        "k": { "type": "integer", "minimum": 1, "default": 14 },
-        "d": { "type": "integer", "minimum": 1, "default": 3 },
+        "type": {
+          "const": "stoch"
+        },
+        "k": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 14
+        },
+        "d": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        },
         "smoothK": {
           "type": "integer",
           "minimum": 1,
-          "default": 3,
-          "x-aliases": ["smooth_k", "smooth"]
+          "default": 3
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "StochRsiRequest": {
       "type": "object",
       "description": "Stochastic RSI.",
       "properties": {
-        "type": { "const": "stochrsi" },
-        "length": { "type": "integer", "minimum": 1, "default": 14 },
+        "type": {
+          "const": "stochrsi"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 14
+        },
         "rsiLength": {
           "type": "integer",
           "minimum": 1,
-          "default": 14,
-          "x-aliases": ["rsi_length"]
+          "default": 14
         },
-        "k": { "type": "integer", "minimum": 1, "default": 3 },
-        "d": { "type": "integer", "minimum": 1, "default": 3 }
+        "k": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        },
+        "d": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "AdxRequest": {
       "type": "object",
       "description": "Average Directional Index + DMI.",
       "properties": {
-        "type": { "const": "adx" },
-        "length": { "type": "integer", "minimum": 1, "default": 14 }
+        "type": {
+          "const": "adx"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 14
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "AroonRequest": {
       "type": "object",
       "description": "Aroon up/down + oscillator.",
       "properties": {
-        "type": { "const": "aroon" },
-        "length": { "type": "integer", "minimum": 1, "default": 14 }
+        "type": {
+          "const": "aroon"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 14
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "VortexRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "vortex" },
-        "length": { "type": "integer", "minimum": 1, "default": 14 }
+        "type": {
+          "const": "vortex"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 14
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "TsiRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "tsi" },
-        "fast": { "type": "integer", "minimum": 1, "default": 13 },
-        "slow": { "type": "integer", "minimum": 1, "default": 25 },
-        "signal": { "type": "integer", "minimum": 1, "default": 13 }
+        "type": {
+          "const": "tsi"
+        },
+        "fast": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 13
+        },
+        "slow": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 25
+        },
+        "signal": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 13
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "TrixRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "trix" },
-        "length": { "type": "integer", "minimum": 1, "default": 30 },
-        "signal": { "type": "integer", "minimum": 1, "default": 9 }
+        "type": {
+          "const": "trix"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        },
+        "signal": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 9
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "KvoRequest": {
       "type": "object",
-      "description": "Klinger Volume Oscillator — requires volume.",
+      "description": "Klinger Volume Oscillator \u2014 requires volume.",
       "properties": {
-        "type": { "const": "kvo" },
-        "fast": { "type": "integer", "minimum": 1, "default": 34 },
-        "slow": { "type": "integer", "minimum": 1, "default": 55 },
-        "signal": { "type": "integer", "minimum": 1, "default": 13 }
+        "type": {
+          "const": "kvo"
+        },
+        "fast": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 34
+        },
+        "slow": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 55
+        },
+        "signal": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 13
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "FisherRequest": {
       "type": "object",
       "description": "Ehlers Fisher Transform.",
       "properties": {
-        "type": { "const": "fisher" },
-        "length": { "type": "integer", "minimum": 1, "default": 9 },
-        "signal": { "type": "integer", "minimum": 1, "default": 1 }
+        "type": {
+          "const": "fisher"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 9
+        },
+        "signal": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "BbandsRequest": {
       "type": "object",
       "description": "Bollinger Bands.",
       "properties": {
-        "type": { "const": "bbands" },
-        "length": { "type": "integer", "minimum": 1, "default": 20 },
-        "std": { "type": "number", "exclusiveMinimum": 0, "default": 2.0 }
+        "type": {
+          "const": "bbands"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20
+        },
+        "std": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 2.0
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "KcRequest": {
       "type": "object",
       "description": "Keltner Channels.",
       "properties": {
-        "type": { "const": "kc" },
-        "length": { "type": "integer", "minimum": 1, "default": 20 },
-        "scalar": { "type": "number", "exclusiveMinimum": 0, "default": 2.0 }
+        "type": {
+          "const": "kc"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20
+        },
+        "scalar": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 2.0
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "DonchianRequest": {
       "type": "object",
       "description": "Donchian Channels.",
       "properties": {
-        "type": { "const": "donchian" },
-        "length": { "type": "integer", "minimum": 1, "default": 20 }
+        "type": {
+          "const": "donchian"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "SqueezeRequest": {
       "type": "object",
       "description": "TTM Squeeze (Bollinger inside Keltner).",
       "properties": {
-        "type": { "const": "squeeze" },
+        "type": {
+          "const": "squeeze"
+        },
         "bbLength": {
           "type": "integer",
           "minimum": 1,
-          "default": 20,
-          "x-aliases": ["bb_length"]
+          "default": 20
         },
         "bbStd": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "default": 2.0,
-          "x-aliases": ["bb_std"]
+          "default": 2.0
         },
         "kcLength": {
           "type": "integer",
           "minimum": 1,
-          "default": 20,
-          "x-aliases": ["kc_length"]
+          "default": 20
         },
         "kcScalar": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "default": 1.5,
-          "x-aliases": ["kc_scalar"]
+          "default": 1.5
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "SupertrendRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "supertrend" },
-        "length": { "type": "integer", "minimum": 1, "default": 7 },
+        "type": {
+          "const": "supertrend"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 7
+        },
         "multiplier": {
           "type": "number",
           "exclusiveMinimum": 0,
           "default": 3.0
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "PsarRequest": {
       "type": "object",
       "description": "Parabolic SAR.",
       "properties": {
-        "type": { "const": "psar" },
+        "type": {
+          "const": "psar"
+        },
         "af": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "default": 0.02,
-          "x-aliases": ["step"]
+          "default": 0.02
         },
         "max": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "default": 0.2,
-          "x-aliases": ["maxAf"]
+          "default": 0.2
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "IchimokuRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "ichimoku" },
-        "tenkan": { "type": "integer", "minimum": 1, "default": 9 },
-        "kijun": { "type": "integer", "minimum": 1, "default": 26 },
-        "senkou": { "type": "integer", "minimum": 1, "default": 52 }
+        "type": {
+          "const": "ichimoku"
+        },
+        "tenkan": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 9
+        },
+        "kijun": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 26
+        },
+        "senkou": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 52
+        }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "ChandelierExitRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "chandelierExit" },
-        "length": { "type": "integer", "minimum": 1, "default": 22 },
+        "type": {
+          "const": "chandelierExit"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 22
+        },
         "atrLength": {
           "type": "integer",
           "minimum": 1,
-          "default": 22,
-          "x-aliases": ["atr_length"]
+          "default": 22
         },
         "multiplier": {
           "type": "number",
@@ -511,220 +843,366 @@
           "default": 2.0
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "OrderBlocksRequest": {
       "type": "object",
-      "properties": { "type": { "const": "orderBlocks" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "orderBlocks"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "FvgRequest": {
       "type": "object",
-      "properties": { "type": { "enum": ["fvg", "fvgs"] } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "fvg",
+            "fvgs"
+          ]
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "BosChochRequest": {
       "type": "object",
-      "properties": { "type": { "const": "bosChoch" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "bosChoch"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "SwingLevelsRequest": {
       "type": "object",
-      "properties": { "type": { "const": "swingLevels" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "swingLevels"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "SrLevelsRequest": {
       "type": "object",
-      "properties": { "type": { "const": "srLevels" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "srLevels"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "RecentRangeRequest": {
       "type": "object",
-      "properties": { "type": { "const": "recentRange" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "recentRange"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "LiquidityRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "liquidity" },
+        "type": {
+          "const": "liquidity"
+        },
         "swingLength": {
           "type": "integer",
           "minimum": 1,
-          "default": 10,
-          "x-aliases": ["swing_length"]
+          "default": 10
         },
         "rangePercent": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "default": 0.01,
-          "x-aliases": ["range_percent"]
+          "default": 0.01
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "PreviousHighLowRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "previousHighLow" },
+        "type": {
+          "const": "previousHighLow"
+        },
         "timeFrame": {
           "type": "string",
           "default": "1D",
-          "description": "Pandas resample freq (\"1D\", \"1W\", \"4h\").",
-          "x-aliases": ["time_frame"]
+          "description": "Pandas resample freq (\"1D\", \"1W\", \"4h\")."
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "SessionsRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "sessions" },
+        "type": {
+          "const": "sessions"
+        },
         "session": {
           "type": "string",
           "default": "London",
-          "description": "Session name as accepted by smartmoneyconcepts (\"London\", \"New York\", \"Tokyo\", \"Sydney\", …)."
+          "description": "Session name as accepted by smartmoneyconcepts (\"London\", \"New York\", \"Tokyo\", \"Sydney\", \u2026)."
         },
         "startTime": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "default": null,
-          "description": "Override session start (HH:MM, exchange-local).",
-          "x-aliases": ["start_time"]
+          "description": "Override session start (HH:MM, exchange-local)."
         },
         "endTime": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "default": null,
-          "description": "Override session end (HH:MM, exchange-local).",
-          "x-aliases": ["end_time"]
+          "description": "Override session end (HH:MM, exchange-local)."
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "RetracementsRequest": {
       "type": "object",
       "properties": {
-        "type": { "const": "retracements" },
+        "type": {
+          "const": "retracements"
+        },
         "swingLength": {
           "type": "integer",
           "minimum": 1,
-          "default": 10,
-          "x-aliases": ["swing_length"]
+          "default": 10
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "PriceRequest": {
       "type": "object",
-      "properties": { "type": { "const": "price" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "price"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "LevelsRequest": {
       "type": "object",
-      "properties": { "type": { "const": "levels" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "levels"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "MomentumRequest": {
       "type": "object",
-      "properties": { "type": { "const": "momentum" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "momentum"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "VolumeRequest": {
       "type": "object",
-      "properties": { "type": { "const": "volume" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "volume"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "PositionRequest": {
       "type": "object",
-      "properties": { "type": { "const": "position" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "position"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "SlopeRequest": {
       "type": "object",
-      "properties": { "type": { "const": "slope" } },
-      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "slope"
+        }
+      },
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
-
     "OrderBlock": {
       "type": "object",
       "description": "Used by orderBlocks and fvg outputs (identical shape).",
       "properties": {
-        "type": { "enum": ["bullish", "bearish"] },
-        "top": { "type": "number" },
-        "bottom": { "type": "number" },
-        "candleIdx": { "type": "integer", "minimum": 0 },
-        "time": { "type": "integer", "description": "UTC seconds." },
+        "type": {
+          "enum": [
+            "bullish",
+            "bearish"
+          ]
+        },
+        "top": {
+          "type": "number"
+        },
+        "bottom": {
+          "type": "number"
+        },
+        "candleIdx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "time": {
+          "type": "integer",
+          "description": "UTC seconds."
+        },
         "distancePct": {
           "type": "number",
           "description": "|reference - price| / price * 100."
         }
       },
-      "required": ["type", "top", "bottom", "candleIdx", "time", "distancePct"]
+      "required": [
+        "type",
+        "top",
+        "bottom",
+        "candleIdx",
+        "time",
+        "distancePct"
+      ]
     },
-
     "BosChochEvent": {
       "type": "object",
       "properties": {
-        "event": { "enum": ["BOS", "CHoCH"] },
-        "direction": { "enum": ["bullish", "bearish"] },
-        "level": { "type": ["number", "null"] },
-        "time": { "type": "integer" }
+        "event": {
+          "enum": [
+            "BOS",
+            "CHoCH"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "bullish",
+            "bearish"
+          ]
+        },
+        "level": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "time": {
+          "type": "integer"
+        }
       },
-      "required": ["event", "direction", "level", "time"]
+      "required": [
+        "event",
+        "direction",
+        "level",
+        "time"
+      ]
     },
-
     "SwingLevel": {
       "type": "object",
       "properties": {
-        "type": { "enum": ["high", "low"] },
-        "level": { "type": "number" },
-        "time": { "type": "integer" }
+        "type": {
+          "enum": [
+            "high",
+            "low"
+          ]
+        },
+        "level": {
+          "type": "number"
+        },
+        "time": {
+          "type": "integer"
+        }
       },
-      "required": ["type", "level", "time"]
+      "required": [
+        "type",
+        "level",
+        "time"
+      ]
     },
-
     "SrLevel": {
       "type": "object",
       "properties": {
-        "level": { "type": "number" },
-        "type": { "enum": ["support", "resistance"] },
-        "distancePct": { "type": "number" },
-        "touches": { "type": "integer", "minimum": 2 }
+        "level": {
+          "type": "number"
+        },
+        "type": {
+          "enum": [
+            "support",
+            "resistance"
+          ]
+        },
+        "distancePct": {
+          "type": "number"
+        },
+        "touches": {
+          "type": "integer",
+          "minimum": 2
+        }
       },
-      "required": ["level", "type", "distancePct", "touches"]
+      "required": [
+        "level",
+        "type",
+        "distancePct",
+        "touches"
+      ]
     },
-
     "RecentRange": {
       "type": "object",
       "properties": {
@@ -745,32 +1223,88 @@
           "description": "Min low over the entire submitted series."
         }
       },
-      "required": ["high", "low", "periodHigh", "periodLow"]
+      "required": [
+        "high",
+        "low",
+        "periodHigh",
+        "periodLow"
+      ]
     },
-
     "SmcEvent": {
       "type": "object",
       "description": "Sparse event used by liquidity, previousHighLow, sessions, retracements. idx + time always present; remaining fields forwarded as-is (null values stripped).",
       "properties": {
-        "idx": { "type": "integer", "minimum": 0 },
-        "time": { "type": "integer" }
+        "idx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "time": {
+          "type": "integer"
+        }
       },
-      "required": ["idx", "time"],
+      "required": [
+        "idx",
+        "time"
+      ],
       "additionalProperties": true
     },
-
     "Levels": {
       "type": "object",
       "properties": {
-        "ema21": { "type": ["number", "null"] },
-        "sma50": { "type": ["number", "null"] },
-        "sma100": { "type": ["number", "null"] },
-        "sma200": { "type": ["number", "null"] },
-        "atr": { "type": ["number", "null"] },
-        "vwap": { "type": ["number", "null"] },
-        "donchianUpper": { "type": ["number", "null"] },
-        "donchianLower": { "type": ["number", "null"] },
-        "donchianMid": { "type": ["number", "null"] }
+        "ema21": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sma50": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sma100": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sma200": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "atr": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "vwap": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "donchianUpper": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "donchianLower": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "donchianMid": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
       },
       "required": [
         "ema21",
@@ -784,18 +1318,57 @@
         "donchianMid"
       ]
     },
-
     "Momentum": {
       "type": "object",
       "properties": {
-        "rsi": { "type": ["number", "null"] },
-        "mfi": { "type": ["number", "null"] },
-        "macdHist": { "type": ["number", "null"] },
-        "macdLine": { "type": ["number", "null"] },
-        "macdSignal": { "type": ["number", "null"] },
-        "adx": { "type": ["number", "null"] },
-        "stochK": { "type": ["number", "null"] },
-        "stochD": { "type": ["number", "null"] }
+        "rsi": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "mfi": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "macdHist": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "macdLine": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "macdSignal": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "adx": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "stochK": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "stochD": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
       },
       "required": [
         "rsi",
@@ -808,61 +1381,129 @@
         "stochD"
       ]
     },
-
     "Volume": {
       "type": "object",
       "properties": {
         "volRatio": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "Current tick volume / rolling mean."
         },
-        "obv": { "type": ["number", "null"] },
+        "obv": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "isSpike": {
           "type": "boolean",
           "description": "True when volRatio > 2.0."
         }
       },
-      "required": ["volRatio", "obv", "isSpike"]
+      "required": [
+        "volRatio",
+        "obv",
+        "isSpike"
+      ]
     },
-
     "Position": {
       "type": "object",
       "description": "Where price sits vs. each MA / VWAP. Only keys with a computable MA are present.",
       "properties": {
-        "ema21": { "enum": ["above", "below"] },
-        "sma50": { "enum": ["above", "below"] },
-        "sma100": { "enum": ["above", "below"] },
-        "sma200": { "enum": ["above", "below"] },
-        "vwap": { "enum": ["above", "below"] }
+        "ema21": {
+          "enum": [
+            "above",
+            "below"
+          ]
+        },
+        "sma50": {
+          "enum": [
+            "above",
+            "below"
+          ]
+        },
+        "sma100": {
+          "enum": [
+            "above",
+            "below"
+          ]
+        },
+        "sma200": {
+          "enum": [
+            "above",
+            "below"
+          ]
+        },
+        "vwap": {
+          "enum": [
+            "above",
+            "below"
+          ]
+        }
       },
       "additionalProperties": false
     },
-
     "Slope": {
       "type": "object",
       "description": "Direction of each MA / VWAP over the last 10 bars. Only present keys appear.",
       "properties": {
-        "ema21": { "enum": ["up", "down"] },
-        "sma50": { "enum": ["up", "down"] },
-        "sma100": { "enum": ["up", "down"] },
-        "sma200": { "enum": ["up", "down"] },
-        "vwap": { "enum": ["up", "down"] }
+        "ema21": {
+          "enum": [
+            "up",
+            "down"
+          ]
+        },
+        "sma50": {
+          "enum": [
+            "up",
+            "down"
+          ]
+        },
+        "sma100": {
+          "enum": [
+            "up",
+            "down"
+          ]
+        },
+        "sma200": {
+          "enum": [
+            "up",
+            "down"
+          ]
+        },
+        "vwap": {
+          "enum": [
+            "up",
+            "down"
+          ]
+        }
       },
       "additionalProperties": false
     },
-
     "ComputeResponse": {
       "type": "object",
       "description": "Wickworks POST / response envelope. Each requested outputKey in `indicators` maps to a corresponding key here with the indicator's return value.",
       "properties": {
-        "symbol": { "type": "string" },
-        "timeframe": { "type": "string" },
-        "candles": { "type": "integer", "minimum": 0 }
+        "symbol": {
+          "type": "string"
+        },
+        "timeframe": {
+          "type": "string"
+        },
+        "candles": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
-      "required": ["symbol", "timeframe", "candles"],
+      "required": [
+        "symbol",
+        "timeframe",
+        "candles"
+      ],
       "additionalProperties": true
     },
-
     "InsufficientBarsError": {
       "type": "object",
       "description": "HTTP 400 body when one or more requested indicators need more bars than were submitted. Every under-fed indicator is listed in `deficits` so the entire call can be fixed in one round trip.",
@@ -870,27 +1511,56 @@
         "detail": {
           "type": "object",
           "properties": {
-            "error": { "const": "insufficient_bars" },
-            "message": { "type": "string" },
-            "available": { "type": "integer", "minimum": 0 },
+            "error": {
+              "const": "insufficient_bars"
+            },
+            "message": {
+              "type": "string"
+            },
+            "available": {
+              "type": "integer",
+              "minimum": 0
+            },
             "deficits": {
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
-                  "outputKey": { "type": "string" },
-                  "type": { "type": "string" },
-                  "required": { "type": "integer", "minimum": 1 },
-                  "available": { "type": "integer", "minimum": 0 }
+                  "outputKey": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "required": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "available": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
                 },
-                "required": ["outputKey", "type", "required", "available"]
+                "required": [
+                  "outputKey",
+                  "type",
+                  "required",
+                  "available"
+                ]
               }
             }
           },
-          "required": ["error", "message", "available", "deficits"]
+          "required": [
+            "error",
+            "message",
+            "available",
+            "deficits"
+          ]
         }
       },
-      "required": ["detail"]
+      "required": [
+        "detail"
+      ]
     }
   }
 }

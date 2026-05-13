@@ -22,10 +22,12 @@ class Bar(BaseModel):
     close: float
     tick_volume: int = Field(
         default=0,
+        ge=0,
         validation_alias=AliasChoices("tickVolume", "tick_volume"),
     )
     real_volume: int = Field(
         default=0,
+        ge=0,
         validation_alias=AliasChoices("realVolume", "real_volume"),
     )
 
