@@ -41,7 +41,7 @@ Built on `pandas_ta` and `smartmoneyconcepts`, wrapped in a FastAPI server, lock
 | **Divergences** | Regular + hidden divergence detection, divergence trends, signal-tagged with stable IDs |
 | **Summaries** | Position, slope, momentum, volume regime, recent range — pre-baked projections over the raw series |
 
-All numeric output is camelCase JSON. NaN-safe. NumPy/Pandas types serialized cleanly. Bars in UTC, math in UTC, container runs `TZ=UTC` — timezone bullshit is your problem, not ours.
+All JSON field names are camelCase. Output is NaN-safe — `NaN` becomes `null`, never a literal `NaN` token that blows up downstream parsers. NumPy/Pandas scalars and arrays are serialized cleanly (no `numpy.float64(...)` leaks). Bars in UTC, math in UTC, container runs `TZ=UTC` — timezone bullshit is your problem, not ours.
 
 ## Quick Start
 
