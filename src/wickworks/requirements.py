@@ -160,8 +160,8 @@ REQUIREMENTS: dict[str, Callable[[dict[str, Any]], int]] = {
     "trix": _trix,
     "tsi": _tsi,
     "squeeze": _squeeze,
-    # SMC objects + analysis summaries + divergence signals — all read from
-    # the shared analysis(), which assumes >= MIN_BARS history.
+    # SMC objects + analysis summaries — all read from the shared analysis(),
+    # which assumes >= MIN_BARS history.
     "orderBlocks": _smc,
     "fvg": _smc,
     "fvgs": _smc,
@@ -179,8 +179,6 @@ REQUIREMENTS: dict[str, Callable[[dict[str, Any]], int]] = {
     "volume": _smc,
     "position": _smc,
     "slope": _smc,
-    "divergences": _smc,
-    "divTrends": _smc,
 }
 
 

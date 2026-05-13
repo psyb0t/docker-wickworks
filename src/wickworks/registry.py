@@ -17,10 +17,6 @@ from smartmoneyconcepts import smc as smc_lib
 
 from . import smc as smc_module
 from .common import parse_duration
-from .signals import (
-    detect_all_divergences,
-    detect_div_trends,
-)
 
 
 def _col(out: pd.DataFrame, prefix: str, fallback_idx: int = 0) -> pd.Series:
@@ -49,17 +45,11 @@ class Context:
         self.df = df
         self.timeframe = timeframe
         self._analysis: dict[str, Any] | None = None
-        self._divergences: list[dict[str, Any]] | None = None
 
     def analysis(self) -> dict[str, Any]:
         if self._analysis is None:
             self._analysis = smc_module.analyze(self.df, self.timeframe)
         return self._analysis
-
-    def divergences(self) -> list[dict[str, Any]]:
-        if self._divergences is None:
-            self._divergences = detect_all_divergences(self.df)
-        return self._divergences
 
 
 # -----------------------------------------------------------------------------
@@ -597,19 +587,6 @@ def _price(ctx: Context, _p: dict[str, Any]) -> dict[str, Any]:
 
 
 # -----------------------------------------------------------------------------
-# Signals — derived from indicator columns + analysis.
-# -----------------------------------------------------------------------------
-
-
-def _divergences(ctx: Context, _p: dict[str, Any]) -> list[dict[str, Any]]:
-    return ctx.divergences()
-
-
-def _div_trends(ctx: Context, _p: dict[str, Any]) -> list[dict[str, Any]]:
-    return detect_div_trends(ctx.df, divergences=ctx.divergences())
-
-
-# -----------------------------------------------------------------------------
 # Registry
 # -----------------------------------------------------------------------------
 
@@ -686,14 +663,10 @@ INDICATORS: dict[str, Callable[[Context, dict[str, Any]], Any]] = {
     "volume": _volume,
     "position": _position,
     "slope": _slope,
-    # Signals
-    "divergences": _divergences,
-    "divTrends": _div_trends,
 }
 
 
-# Signal-like outputs get isRecent tagging + sha256 ids.
-RECENT_TAGGABLE: dict[str, str] = {
-    "divergences": "idx2",
-    "divTrends": "bar_end",
-}
+# Signal-like outputs get isRecent tagging + sha256 ids. Wickworks emits
+# primitives only — no signals — so this is empty by design. Kept as a
+# typed empty mapping so callers can iterate without a None check.
+RECENT_TAGGABLE: dict[str, str] = {}

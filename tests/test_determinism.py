@@ -25,8 +25,6 @@ _FULL_INDICATORS: dict[str, Any] = {
     "bosChoch": True,
     "swingLevels": True,
     "srLevels": True,
-    "divergences": True,
-    "divTrends": True,
     "momentum": True,
     "volume": True,
     "position": True,

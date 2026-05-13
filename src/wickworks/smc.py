@@ -6,8 +6,8 @@ columns added and returns a structured analysis dict for a single timeframe.
 import numpy as np
 import pandas as pd
 
-from .signals._helpers import find_col
-from .signals._helpers import safe_float as _safe
+from .common import find_col
+from .common import safe_float as _safe
 
 
 def _count_sr_touches(

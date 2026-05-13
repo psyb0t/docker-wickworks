@@ -3,10 +3,36 @@
 from __future__ import annotations
 
 import re
-from typing import Union
+from typing import Any, Union
+
+import pandas as pd
 
 _DURATION_RE = re.compile(r"(\d+)\s*([hms])", re.IGNORECASE)
 _UNIT_SECONDS = {"h": 3600, "m": 60, "s": 1}
+
+
+def find_col(df: pd.DataFrame, prefix: str) -> str | None:
+    """First column starting with `prefix`, or None. Pandas_ta suffixes column
+    names with their parameters (e.g. ``STOCHk_14_3_3``), so callers match by
+    prefix to stay robust against length changes."""
+    for c in df.columns:
+        if c.startswith(prefix):
+            return c
+    return None
+
+
+def safe_float(val: Any) -> float | None:
+    """Convert val to float, returning None for NaN / ±Inf / unconvertible.
+
+    Rounds to 6 decimals so floats round-trip cleanly through JSON without
+    14-digit precision tails that bloat payloads and break diffs."""
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f == float("inf") or f == float("-inf"):
+        return None
+    return round(f, 6)
 
 
 def parse_duration(value: Union[str, int, float, None]) -> int:

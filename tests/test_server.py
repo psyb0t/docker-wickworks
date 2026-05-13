@@ -135,23 +135,3 @@ def test_compute_multiple_stochs_produce_distinct_series(
     assert body["stochFast"]["k"] != body["stochSlow"]["k"]
 
 
-# -----------------------------------------------------------------------------
-# Signal-tagged outputs (divergences, divTrends) carry isRecent + id.
-# -----------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("indicator", ["divergences", "divTrends"])
-def test_compute_signal_outputs_are_tagged(
-    bars_500: list[dict[str, Any]], indicator: str
-) -> None:
-    r = client.post(
-        "/",
-        json={"bars": bars_500, "recentBars": 20, "indicators": {indicator: True}},
-    )
-    assert r.status_code == 200, r.text
-    items = r.json()[indicator]
-    assert isinstance(items, list)
-    for item in items:
-        assert "isRecent" in item
-        assert isinstance(item["isRecent"], bool)
-        assert "id" in item and len(item["id"]) == 64
