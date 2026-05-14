@@ -6,7 +6,7 @@ columns added and returns a structured analysis dict for a single timeframe.
 import numpy as np
 import pandas as pd
 
-from .common import find_col
+from .common import find_col, safe_float
 from .common import safe_float as _safe
 
 
@@ -80,7 +80,7 @@ def get_sr_levels(
             count += 1
             levels.append(
                 {
-                    "level": round(lvl, 6),
+                    "level": lvl,
                     "type": sr_type,
                     "distance_pct": round(abs(price - lvl) / price * 100, 3),
                     "touches": touches,
@@ -95,9 +95,38 @@ def analyze(df: pd.DataFrame, timeframe: str) -> dict:
     """
     Run full SMC + levels analysis on a single-timeframe DataFrame.
     Returns a structured dict with all analysis data.
+
+    Returns a minimal stub when the last bar's close is non-positive or
+    non-finite. Most downstream computations here divide by `price`
+    (distance_pct in order blocks, FVGs, S/R) and would emit ±Inf into
+    the JSON response, which FastAPI then refuses to serialize. A
+    zero/negative/NaN close is a data error anyway — no meaningful TA
+    can be derived from it, so we bail with an empty-but-typed result.
     """
     latest = df.iloc[-1]
-    price = float(latest["close"])
+    # decimals=None: crypto prices can sit below 1e-6 (e.g. PEPE ~1e-7,
+    # micro-caps ~1e-12). Rounding here would clamp them to 0 and then the
+    # `price <= 0` guard would falsely bail. Keep full precision; the
+    # downstream divides are stable as long as price is strictly positive.
+    price = safe_float(latest["close"], decimals=None)
+    if price is None or price <= 0:
+        return {
+            "timeframe": timeframe,
+            "candles": len(df),
+            "price": price if price is not None else 0.0,
+            "time": int(latest["time"]),
+            "levels": {},
+            "momentum": {},
+            "volume": {},
+            "position": {},
+            "slope": {},
+            "order_blocks": [],
+            "fvgs": [],
+            "bos_choch": [],
+            "swing_levels": [],
+            "sr_levels": [],
+            "recent_range": {},
+        }
 
     dcu_col = find_col(df, "DCU_")
     dcl_col = find_col(df, "DCL_")
@@ -157,10 +186,10 @@ def analyze(df: pd.DataFrame, timeframe: str) -> dict:
         "swing_levels": _swing_levels(df),
         "sr_levels": get_sr_levels(df, price, atr),
         "recent_range": {
-            "high": float(df["high"].tail(20).max()),
-            "low": float(df["low"].tail(20).min()),
-            "period_high": float(df["high"].max()),
-            "period_low": float(df["low"].min()),
+            "high": safe_float(df["high"].tail(20).max(), decimals=None),
+            "low": safe_float(df["low"].tail(20).min(), decimals=None),
+            "period_high": safe_float(df["high"].max(), decimals=None),
+            "period_low": safe_float(df["low"].min(), decimals=None),
         },
     }
 
@@ -303,7 +332,7 @@ def _swing_levels(df: pd.DataFrame) -> list[dict]:
     return [
         {
             "type": "high" if st == 1 else "low",
-            "level": float(lvl),
+            "level": safe_float(lvl, decimals=None),
             "time": int(t),
         }
         for st, lvl, t in zip(
@@ -311,4 +340,5 @@ def _swing_levels(df: pd.DataFrame) -> list[dict]:
             rows["swing_level"].to_numpy(),
             rows["time"].to_numpy(),
         )
+        if safe_float(lvl, decimals=None) is not None
     ][-10:]

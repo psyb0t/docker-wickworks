@@ -82,7 +82,7 @@ curl -s http://localhost:8000/health
 ```
 
 ```json
-{ "ok": true, "version": "0.3.1" }
+{ "ok": true, "version": "0.3.2" }
 ```
 
 ### `POST /` — compute

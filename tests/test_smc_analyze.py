@@ -318,3 +318,100 @@ def test_analyze_volume_spike_flag():
     df.loc[df.index[-1], "vol_ratio"] = 1.5  # < 2.0 → no spike
     out = analyze(df, "H1")
     assert out["volume"]["is_spike"] is False
+
+
+# ---------------------------------------------------------------------------
+# Degenerate-price guards. analyze() used to leak ±Inf into the response
+# whenever (price - x) / price divided by a zero/NaN price, crashing
+# FastAPI's JSON encoder with: "Out of range float values are not JSON
+# compliant: -inf". The fix bails with an empty-but-typed stub in that
+# case AND keeps full precision for sub-1e-6 crypto prices.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_close",
+    [0.0, -1.0, np.nan],
+    ids=["zero", "negative", "nan"],
+)
+def test_analyze_degenerate_price_bails_with_stub(bad_close: float):
+    """All three degenerate cases (0, negative, NaN) hit the same guard at
+    the top of analyze() and return an empty-but-typed dict. Critical: no
+    ±Inf anywhere — the response must round-trip through strict JSON."""
+    import json
+
+    from wickworks.smc import analyze
+
+    df = _base_df()
+    df.loc[df.index[-1], "close"] = bad_close
+    out = analyze(df, "H1")
+
+    # Strict JSON would raise on Inf/NaN — proves the response is clean.
+    json.dumps(out, allow_nan=False)
+
+    # Empty-but-typed stub — frontend renders nothing, no crash.
+    assert out["order_blocks"] == []
+    assert out["fvgs"] == []
+    assert out["sr_levels"] == []
+    assert out["swing_levels"] == []
+    assert out["recent_range"] == {}
+    assert out["levels"] == {}
+    assert out["momentum"] == {}
+
+
+@pytest.mark.parametrize(
+    "tiny_price",
+    [1e-7, 1e-8, 1e-12, 1e-15],
+    ids=["1e-7", "1e-8", "1e-12", "1e-15"],
+)
+def test_analyze_tiny_crypto_price_preserves_precision(tiny_price: float):
+    """SHIB / PEPE / micro-cap launches trade well below 1e-6. The price
+    guard must not round these to 0, and the price stored in the result
+    must preserve the actual magnitude for the frontend chart."""
+    import json
+
+    from wickworks.smc import analyze
+
+    df = _base_df(price_close=tiny_price)
+    out = analyze(df, "H1")
+
+    # Did NOT hit the bail-stub.
+    assert out["price"] == tiny_price
+    assert out["recent_range"] != {}
+    # And serializes cleanly with no Inf/NaN.
+    json.dumps(out, allow_nan=False)
+
+
+@pytest.mark.parametrize(
+    "series_in,expected",
+    [
+        # CCI mad=0 path produces ±Inf — must become None
+        ([1.0, np.inf, 2.0], [1.0, None, 2.0]),
+        ([1.0, -np.inf, 2.0], [1.0, None, 2.0]),
+        # NaN already handled before this fix, kept to lock behavior
+        ([1.0, np.nan, 2.0], [1.0, None, 2.0]),
+        # Mixed
+        ([np.inf, np.nan, -np.inf, 3.0], [None, None, None, 3.0]),
+        # Empty/passthrough
+        ([], []),
+        ([1.0, 2.0, 3.0], [1.0, 2.0, 3.0]),
+    ],
+    ids=["plus_inf", "minus_inf", "nan", "all_invalid_mix", "empty", "all_valid"],
+)
+def test_series_sanitizes_indicator_output(
+    series_in: list, expected: list
+):
+    """_series is the JSON projection for every series indicator. CCI on a
+    flat window produces ±Inf from (tp-mean)/(c*mad) when mad=0; pandas_ta
+    primitives can also emit Inf from divide-by-zero edge cases. This lock
+    proves _series replaces every non-finite value with None."""
+    import json
+
+    import pandas as pd
+
+    from wickworks.registry import _series
+
+    out = _series(pd.Series(series_in, dtype=float))
+    assert out == expected
+    # Result must round-trip through strict JSON.
+    json.dumps(out, allow_nan=False)

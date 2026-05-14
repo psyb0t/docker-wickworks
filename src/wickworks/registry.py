@@ -16,7 +16,7 @@ import pandas_ta as ta
 from smartmoneyconcepts import smc as smc_lib
 
 from . import smc as smc_module
-from .common import parse_duration
+from .common import parse_duration, safe_float
 
 
 def _col(out: pd.DataFrame, prefix: str, fallback_idx: int = 0) -> pd.Series:
@@ -32,10 +32,17 @@ def _vol_col(df: pd.DataFrame) -> str:
 
 
 def _series(s: pd.Series | None) -> list[float | None]:
-    """pandas Series -> JSON-safe list (NaN -> None)."""
+    """pandas Series -> JSON-safe list (NaN / ±Inf -> None).
+
+    Indicators like CCI divide by rolling MAD; on flat windows MAD=0 and the
+    result is ±Inf, which is not JSON-compliant. smartmoneyconcepts internals
+    likewise emit Inf from divide-by-zero. Route every value through
+    safe_float (with decimals=None to preserve full precision so the
+    closed-form parity tests against ATR/MACD/etc. still match within their
+    tight tolerances) — strictly sanitization, no quantization."""
     if s is None:
         return []
-    return [None if (v is None or (isinstance(v, float) and np.isnan(v))) else float(v) for v in s]
+    return [safe_float(v, decimals=None) for v in s]
 
 
 class Context:
@@ -481,7 +488,13 @@ def _smc_events_from_col(out: pd.DataFrame, df: pd.DataFrame, label_col: str) ->
             v = row[c]
             if pd.isna(v):
                 continue
-            ev[c] = float(v) if isinstance(v, (int, float, np.floating, np.integer)) else v
+            if isinstance(v, (int, float, np.floating, np.integer)):
+                sf = safe_float(v)
+                if sf is None:
+                    continue
+                ev[c] = sf
+                continue
+            ev[c] = v
         events.append(ev)
     return events
 

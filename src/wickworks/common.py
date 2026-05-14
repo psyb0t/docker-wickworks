@@ -21,18 +21,24 @@ def find_col(df: pd.DataFrame, prefix: str) -> str | None:
     return None
 
 
-def safe_float(val: Any) -> float | None:
+def safe_float(val: Any, decimals: int | None = 6) -> float | None:
     """Convert val to float, returning None for NaN / ±Inf / unconvertible.
 
-    Rounds to 6 decimals so floats round-trip cleanly through JSON without
-    14-digit precision tails that bloat payloads and break diffs."""
+    Rounds to `decimals` (default 6) so indicator outputs round-trip cleanly
+    through JSON without 14-digit precision tails that bloat payloads and
+    break diffs. Pass ``decimals=None`` to skip rounding — needed for crypto
+    prices where significant digits live below 1e-6 (e.g. SHIB at ~1e-8,
+    micro-cap tokens at ~1e-15) and rounding to 6 decimals would silently
+    floor them to 0."""
     try:
         f = float(val)
     except (TypeError, ValueError):
         return None
     if f != f or f == float("inf") or f == float("-inf"):
         return None
-    return round(f, 6)
+    if decimals is None:
+        return f
+    return round(f, decimals)
 
 
 def parse_duration(value: Union[str, int, float, None]) -> int:
