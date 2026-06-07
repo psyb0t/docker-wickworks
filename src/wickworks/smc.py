@@ -238,10 +238,25 @@ def _price_position(latest: pd.Series, price: float) -> dict:
 
 
 def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
-    # Vectorized: filter rows with ob_type != 0 and ob_mitigated is NaN
-    mask = (df["ob_type"] != 0) & df["ob_mitigated"].isna()
-    rows = df[mask][["ob_type", "ob_top", "ob_bottom", "time"]].copy()
+    # Emit ALL OBs the smc lib detected (not just the unmitigated ones).
+    # Each row carries the two mitigation flags so downstream consumers can
+    # filter on whichever criterion they want:
+    #   * mitigated_wick: a later bar's wick fully traversed the zone
+    #     (the loose criterion that was the legacy filter)
+    #   * mitigated_close: a later bar's close crossed into/through the
+    #     zone (the stricter criterion most SMC traders read by eye)
+    #
+    # Pre-filtering server-side hid OBs that visually look mitigated but
+    # haven't been wicked all the way through — confusing on charts where
+    # price has clearly already tagged the level. Let the consumer decide.
+    mask = df["ob_type"] != 0
+    cols = ["ob_type", "ob_top", "ob_bottom", "ob_mitigated", "time"]
+    if "ob_mitigated_close" in df.columns:
+        cols.append("ob_mitigated_close")
+    rows = df[mask][cols].copy()
     rows["_idx"] = np.where(mask)[0]
+
+    has_close_col = "ob_mitigated_close" in rows.columns
 
     obs = []
     for _, row in rows.iterrows():
@@ -252,6 +267,10 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
             dist = round((price - top) / price * 100, 3)
         else:
             dist = round((bottom - price) / price * 100, 3)
+        mit_wick = bool(pd.notna(row["ob_mitigated"]))
+        mit_close = bool(
+            has_close_col and pd.notna(row["ob_mitigated_close"])
+        )
         obs.append(
             {
                 "type": ob_type,
@@ -260,10 +279,15 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
                 "candle_idx": int(row["_idx"]),
                 "time": int(row["time"]),
                 "distance_pct": dist,
+                "mitigated_wick": mit_wick,
+                "mitigated_close": mit_close,
             }
         )
     obs.sort(key=lambda x: abs(float(x["distance_pct"])))  # type: ignore[arg-type]
-    return obs[:20]
+    # Cap raised from 20 → 40 because we no longer drop mitigated OBs at
+    # the source — the consumer now sees the full set and filters as it
+    # likes, so a tighter cap would silently drop signals.
+    return obs[:40]
 
 
 def _fvgs(df: pd.DataFrame, price: float) -> list[dict]:

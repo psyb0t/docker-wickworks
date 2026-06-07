@@ -107,22 +107,32 @@ def test_analyze_bearish_ob_distance_sign():
     assert ob["distance_pct"] == pytest.approx(5.0)
 
 
-def test_analyze_ob_mitigated_is_filtered_out():
+def test_analyze_ob_mitigation_flags_round_trip():
+    # As of v0.5.0 the OB extractor stops dropping mitigated entries —
+    # consumers now receive every OB plus per-row `mitigated_wick` /
+    # `mitigated_close` flags so they can pick their freshness criterion.
+    # This test verifies both OBs round-trip and the wick-criterion flag
+    # mirrors the legacy `ob_mitigated` column.
     from wickworks.smc import analyze
 
     df = _base_df()
     df.loc[10, "ob_type"] = 1
     df.loc[10, "ob_top"] = 95.0
     df.loc[10, "ob_bottom"] = 90.0
-    df.loc[10, "ob_mitigated"] = 50  # mitigated at bar 50 → excluded
+    df.loc[10, "ob_mitigated"] = 50  # wick-mitigated at bar 50
     df.loc[20, "ob_type"] = 1
     df.loc[20, "ob_top"] = 92.0
     df.loc[20, "ob_bottom"] = 88.0
-    # bar 20 stays unmitigated → included
+    # bar 20 stays fully fresh — both flags should be false
 
     out = analyze(df, "H1")
-    assert len(out["order_blocks"]) == 1
-    assert out["order_blocks"][0]["bottom"] == 88.0
+    obs = out["order_blocks"]
+    assert len(obs) == 2
+    by_bottom = {ob["bottom"]: ob for ob in obs}
+    assert by_bottom[90.0]["mitigated_wick"] is True
+    assert by_bottom[90.0]["mitigated_close"] is False
+    assert by_bottom[88.0]["mitigated_wick"] is False
+    assert by_bottom[88.0]["mitigated_close"] is False
 
 
 def test_analyze_ob_sorted_by_distance_ascending():
@@ -140,18 +150,22 @@ def test_analyze_ob_sorted_by_distance_ascending():
     assert obs[1]["top"] == 90.0
 
 
-def test_analyze_ob_top_20_truncation():
+def test_analyze_ob_top_40_truncation():
+    # Cap raised 20 → 40 in v0.5.0 to compensate for no longer dropping
+    # mitigated OBs at the source — a 20-cap would silently lose signal
+    # since the cap now applies to live + mitigated combined.
     from wickworks.smc import analyze
 
     df = _base_df(n=200, price_close=100.0)
-    # 25 OBs at descending distances
-    for i in range(25):
+    # 50 OBs at descending distances — sorted ascending by distance
+    # before truncation, so the closest 40 should survive.
+    for i in range(50):
         df.loc[10 + i, "ob_type"] = 1
         df.loc[10 + i, "ob_top"] = 99.0 - i * 0.1
         df.loc[10 + i, "ob_bottom"] = 98.0 - i * 0.1
 
     out = analyze(df, "H1")
-    assert len(out["order_blocks"]) == 20
+    assert len(out["order_blocks"]) == 40
 
 
 def test_analyze_fvg_distance_uses_midpoint():
