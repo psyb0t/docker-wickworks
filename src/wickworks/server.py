@@ -21,6 +21,7 @@ from .compute import (
     UnknownIndicatorError,
     compute_dataframe,
 )
+from .metadata import all_metadata
 from .schemas import ComputeRequest, HealthResponse
 
 
@@ -59,6 +60,23 @@ app = FastAPI(
 @app.get("/health", response_model=HealthResponse)
 def health() -> dict[str, Any]:
     return {"ok": True, "version": __version__}
+
+
+@app.get("/metadata")
+def metadata() -> dict[str, Any]:
+    """Static catalog of human-readable labels + descriptions for every
+    output path the compute endpoint can produce.
+
+    Consumers (frontends, report builders) should fetch this once on startup
+    and cache it — the content is static for a given wickworks version. Use
+    the `version` field in the response to invalidate the cache after a
+    wickworks upgrade.
+
+    See src/wickworks/metadata.py for the lookup-fallback rules consumers
+    should apply when a path isn't an exact match (array-index strip,
+    bare-leaf fallback).
+    """
+    return all_metadata()
 
 
 @app.post("/")
