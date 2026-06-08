@@ -162,10 +162,14 @@ def test_analyze_ob_touch_count_zero_when_price_stays_outside():
     assert any(ob["bottom"] == 48.0 and ob["touch_count"] == 0 for ob in obs)
 
 
-def test_analyze_ob_touch_count_counts_distinct_events():
+def test_analyze_ob_touch_events_and_count():
     # Two separate dips into the OB zone, with bars in between fully above
-    # the zone. Should count as 2 touch events, not 2× the number of bars
-    # that happened to be inside.
+    # the zone. v0.5.1 ships both:
+    #   touch_events: raw 1-based offsets from ob_idx (no settle applied)
+    #   touch_count : default-settle-filtered count for consumers like
+    #                 quanthex that can't tune settle live
+    # The settle default (_OB_TOUCH_SETTLE_BARS = 5) drops the first dip
+    # below since it starts at offset 10 → still > 5 → both events count.
     from wickworks.smc import analyze
 
     df = _base_df(n=200, price_close=100.0)
@@ -177,17 +181,48 @@ def test_analyze_ob_touch_count_counts_distinct_events():
     df.loc[11:, "low"] = 70.0
     df.loc[11:, "close"] = 90.0
     df.loc[11:, "open"] = 90.0
-    # First dip: bars 20..22 reach into 48-50.
+    # First dip: bars 20..22 reach into 48-50 (offset 10..12 from OB@10).
     df.loc[20:22, "low"] = 47.0
     df.loc[20:22, "high"] = 55.0
-    # Bars 23..29 are clear above the OB again (already 70..99).
-    # Second dip: bars 30..31 reach back in.
+    # Second dip: bars 30..31 reach back in (offset 20..21 from OB@10).
     df.loc[30:31, "low"] = 47.0
     df.loc[30:31, "high"] = 49.5
 
     out = analyze(df, "H1")
     by_bottom = {ob["bottom"]: ob for ob in out["order_blocks"]}
-    assert by_bottom[48.0]["touch_count"] == 2
+    ob = by_bottom[48.0]
+    assert ob["touch_events"] == [10, 20]
+    # Both offsets > 5 → settle drops neither → count == 2.
+    assert ob["touch_count"] == 2
+
+
+def test_analyze_ob_touch_count_skips_settle_window():
+    # A touch starting WITHIN the settle window (offset 1..5 from OB) is
+    # the OB's own impulse continuation, not a real test of the level.
+    # touch_events still records it (raw); touch_count drops it.
+    from wickworks.smc import analyze
+
+    df = _base_df(n=200, price_close=100.0)
+    df.loc[10, "ob_type"] = 1
+    df.loc[10, "ob_top"] = 50.0
+    df.loc[10, "ob_bottom"] = 48.0
+    df.loc[11:, "high"] = 99.0
+    df.loc[11:, "low"] = 70.0
+    df.loc[11:, "close"] = 90.0
+    df.loc[11:, "open"] = 90.0
+    # In-settle touch at offset 2..3 (bars 12..13).
+    df.loc[12:13, "low"] = 47.0
+    df.loc[12:13, "high"] = 49.5
+    # Post-settle touch at offset 50 (bar 60).
+    df.loc[60, "low"] = 47.0
+    df.loc[60, "high"] = 49.5
+
+    out = analyze(df, "H1")
+    by_bottom = {ob["bottom"]: ob for ob in out["order_blocks"]}
+    ob = by_bottom[48.0]
+    assert ob["touch_events"] == [2, 50]
+    # Settle drops the offset-2 event; only the offset-50 one survives.
+    assert ob["touch_count"] == 1
 
 
 def test_analyze_ob_sorted_by_distance_ascending():

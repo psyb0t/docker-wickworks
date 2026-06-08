@@ -4,23 +4,24 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
-## v0.5.1 — 2026-06-07
+## v0.5.1 — 2026-06-08
 
-Per-OB `touch_count` for trader-eye freshness grading.
+Per-OB `touch_count` + raw `touch_events` for trader-eye freshness.
 
-- Adds `touch_count: int` to every order block in the response. Counts
-  the number of DISTINCT touch events — contiguous runs of later bars
-  whose [low..high] intersected the OB's [bottom..top]. Each in-and-
-  out of the zone counts as one touch. Captures the trader's "price
-  already tested this zone N times" intuition, which neither
-  `mitigated_wick` nor `mitigated_close` does — the lib's mitigation
-  flags only fire when price breaks PAST the zone in the invalidating
-  direction, not when it just enters and leaves.
-- Consumers (quanthex scoring, chart overlays) grade weight by count:
-  0 = fresh → full; 1 = touched once → half; ≥2 = level respected as
-  price-action S/R → consumer-defined.
-- Cost: one numpy slice + diff per OB to detect rising edges in an
-  inside-mask boolean. Sub-ms.
+- Adds `touch_events: list[int]` per OB: the 1-based bar offsets from
+  the OB candle where a contiguous run of later-bar [low..high]
+  intersected the OB's [bottom..top] BEGAN. Each in-and-out of the
+  zone = one entry. Raw list lets the chart frontend apply a user-
+  tunable settle window without having to recompute server-side.
+- Adds `touch_count: int` per OB: the same data, with the default
+  settle window applied (`_OB_TOUCH_SETTLE_BARS = 5` — touches at
+  offset 1..5 are dropped as OB-own-impulse continuation). Consumers
+  that can't see the FE cog (quanthex scoring) read this directly.
+- Captures the trader's "price already tested this zone N times"
+  intuition. Neither lib mitigation flag does — the lib only fires
+  on invalidating breaks (price PAST the zone in the wrong direction),
+  not on entries/exits.
+- Cost: one numpy slice + diff per OB to detect rising edges. Sub-ms.
 - Additive — existing flags + cap unchanged.
 
 ## v0.5.0 — 2026-06-07

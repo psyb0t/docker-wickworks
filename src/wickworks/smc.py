@@ -198,6 +198,19 @@ def analyze(df: pd.DataFrame, timeframe: str) -> dict:
 
 _SLOPE_LOOKBACK = 10
 
+# Bars after an OB's candle that are ignored when counting touches: the
+# next few bars are the OB's own impulse leg (the smc lib detects OBs as
+# the last down candle before a strong up move, so idx+1..idx+SETTLE are
+# the impulse continuation; their wicks routinely brush the OB top by a
+# tick — that's not a "test", it's the same price action that defined
+# the level). Real touches need price to leave the zone, do something
+# else, then come back. The raw `touch_events` list in each OB ships
+# WITHOUT this filter so the FE can let the user tune it per-cog; the
+# server-computed `touch_count` field has this default applied so
+# quanthex scoring (which can't see the user's cog) gets a sensible
+# default without extra work.
+_OB_TOUCH_SETTLE_BARS = 5
+
 
 def _ma_slopes(df: pd.DataFrame) -> dict:
     """Direction of each MA over the last _SLOPE_LOOKBACK bars."""
@@ -287,23 +300,37 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
             has_close_col and pd.notna(row["ob_mitigated_close"])
         )
 
-        # touch_count = number of DISTINCT touch EVENTS — contiguous runs of
-        # later bars intersecting the OB's [bottom..top]. Each in-and-out
-        # of the zone counts as one touch. Skip the OB's own bar (it
-        # trivially overlaps itself). Consumers grade weight by count:
-        # 0 = fresh, 1 = half, 2+ = exhausted (skip).
-        touch_count = 0
+        # Compute the raw list of touch events FIRST (no settle filter):
+        # each entry is a 1-based offset from ob_idx where a contiguous
+        # run of later-bar [low..high] intersected the OB [bottom..top]
+        # began. e.g. touch_events == [1, 7] means the bar right after
+        # the OB intersected, then price left the zone, then a new
+        # touch started 7 bars after the OB.
+        #
+        # Shipping the raw list lets the FE apply a user-tunable settle
+        # window from the cog without us having to recompute. The
+        # `touch_count` field below applies the default settle so
+        # consumers that can't see the cog (quanthex scoring) still get
+        # a sensible filtered count out of the box.
+        touch_events: list[int] = []
         if ob_idx + 1 < n_bars:
             fut_lows = lows_arr[ob_idx + 1 :]
             fut_highs = highs_arr[ob_idx + 1 :]
             inside = (fut_lows <= top) & (fut_highs >= bottom)
             if inside.any():
-                # A "touch event" is a False→True edge in the inside mask.
-                # Count the first True at index 0 too (no prev bar to
-                # compare against). diff>0 finds the rising edges.
                 inside_i = inside.astype(np.int8)
                 edges = np.diff(inside_i, prepend=np.int8(0))
-                touch_count = int((edges > 0).sum())
+                touch_events = [
+                    int(i + 1) for i in np.nonzero(edges > 0)[0]
+                ]
+
+        # Default-filtered count: drop events inside the settle window
+        # (offsets <= _OB_TOUCH_SETTLE_BARS). Quanthex reads this
+        # directly; the FE recomputes from touch_events using its own
+        # cog-set settle value.
+        touch_count = sum(
+            1 for off in touch_events if off > _OB_TOUCH_SETTLE_BARS
+        )
 
         obs.append(
             {
@@ -316,6 +343,7 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
                 "mitigated_wick": mit_wick,
                 "mitigated_close": mit_close,
                 "touch_count": touch_count,
+                "touch_events": touch_events,
             }
         )
     obs.sort(key=lambda x: abs(float(x["distance_pct"])))  # type: ignore[arg-type]
