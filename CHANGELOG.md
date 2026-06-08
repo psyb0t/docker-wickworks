@@ -4,6 +4,25 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.5.1 — 2026-06-07
+
+Per-OB `touch_count` for trader-eye freshness grading.
+
+- Adds `touch_count: int` to every order block in the response. Counts
+  the number of DISTINCT touch events — contiguous runs of later bars
+  whose [low..high] intersected the OB's [bottom..top]. Each in-and-
+  out of the zone counts as one touch. Captures the trader's "price
+  already tested this zone N times" intuition, which neither
+  `mitigated_wick` nor `mitigated_close` does — the lib's mitigation
+  flags only fire when price breaks PAST the zone in the invalidating
+  direction, not when it just enters and leaves.
+- Consumers (quanthex scoring, chart overlays) grade weight by count:
+  0 = fresh → full; 1 = touched once → half; ≥2 = level respected as
+  price-action S/R → consumer-defined.
+- Cost: one numpy slice + diff per OB to detect rising edges in an
+  inside-mask boolean. Sub-ms.
+- Additive — existing flags + cap unchanged.
+
 ## v0.5.0 — 2026-06-07
 
 Surface both mitigation criteria for SMC order blocks.

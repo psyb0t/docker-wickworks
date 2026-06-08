@@ -239,12 +239,21 @@ def _price_position(latest: pd.Series, price: float) -> dict:
 
 def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
     # Emit ALL OBs the smc lib detected (not just the unmitigated ones).
-    # Each row carries the two mitigation flags so downstream consumers can
-    # filter on whichever criterion they want:
-    #   * mitigated_wick: a later bar's wick fully traversed the zone
-    #     (the loose criterion that was the legacy filter)
-    #   * mitigated_close: a later bar's close crossed into/through the
-    #     zone (the stricter criterion most SMC traders read by eye)
+    # Each row carries three independent flags so downstream consumers can
+    # pick their freshness criterion:
+    #   * mitigated_wick:  later bar's wick traversed the zone in the
+    #                      invalidating direction (lib's loose criterion)
+    #   * mitigated_close: later bar's body broke past the zone in the
+    #                      invalidating direction (lib's strict criterion)
+    #   * touch_count:     number of DISTINCT touch events — contiguous
+    #                      runs of later bars whose range intersected the
+    #                      OB. Each in-and-out of the zone counts as one
+    #                      touch. Captures the trader's "price already
+    #                      tested this zone N times" intuition, which the
+    #                      lib's directional mitigation does NOT.
+    #                      Consumers use it for graded weighting (0 = fresh
+    #                      → full weight; 1 = touched once → half; 2+ =
+    #                      level exhausted → drop or near-zero).
     #
     # Pre-filtering server-side hid OBs that visually look mitigated but
     # haven't been wicked all the way through — confusing on charts where
@@ -258,11 +267,17 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
 
     has_close_col = "ob_mitigated_close" in rows.columns
 
+    # Pull highs/lows once so the per-OB touch check is just numpy slicing.
+    highs_arr = df["high"].values
+    lows_arr = df["low"].values
+    n_bars = len(df)
+
     obs = []
     for _, row in rows.iterrows():
         ob_type = "bullish" if row["ob_type"] == 1 else "bearish"
         top = float(row["ob_top"])
         bottom = float(row["ob_bottom"])
+        ob_idx = int(row["_idx"])
         if ob_type == "bullish":
             dist = round((price - top) / price * 100, 3)
         else:
@@ -271,16 +286,36 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
         mit_close = bool(
             has_close_col and pd.notna(row["ob_mitigated_close"])
         )
+
+        # touch_count = number of DISTINCT touch EVENTS — contiguous runs of
+        # later bars intersecting the OB's [bottom..top]. Each in-and-out
+        # of the zone counts as one touch. Skip the OB's own bar (it
+        # trivially overlaps itself). Consumers grade weight by count:
+        # 0 = fresh, 1 = half, 2+ = exhausted (skip).
+        touch_count = 0
+        if ob_idx + 1 < n_bars:
+            fut_lows = lows_arr[ob_idx + 1 :]
+            fut_highs = highs_arr[ob_idx + 1 :]
+            inside = (fut_lows <= top) & (fut_highs >= bottom)
+            if inside.any():
+                # A "touch event" is a False→True edge in the inside mask.
+                # Count the first True at index 0 too (no prev bar to
+                # compare against). diff>0 finds the rising edges.
+                inside_i = inside.astype(np.int8)
+                edges = np.diff(inside_i, prepend=np.int8(0))
+                touch_count = int((edges > 0).sum())
+
         obs.append(
             {
                 "type": ob_type,
                 "top": top,
                 "bottom": bottom,
-                "candle_idx": int(row["_idx"]),
+                "candle_idx": ob_idx,
                 "time": int(row["time"]),
                 "distance_pct": dist,
                 "mitigated_wick": mit_wick,
                 "mitigated_close": mit_close,
+                "touch_count": touch_count,
             }
         )
     obs.sort(key=lambda x: abs(float(x["distance_pct"])))  # type: ignore[arg-type]

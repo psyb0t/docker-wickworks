@@ -1,6 +1,6 @@
 [project]
 name = "wickworks"
-version = "0.5.0"
+version = "0.5.1"
 description = "Stateless OHLC primitives service — bars in, indicators + SMC objects out."
 readme = "README.md"
 license = { text = "WTFPL" }

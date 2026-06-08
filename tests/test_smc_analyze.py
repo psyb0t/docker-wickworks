@@ -133,6 +133,61 @@ def test_analyze_ob_mitigation_flags_round_trip():
     assert by_bottom[90.0]["mitigated_close"] is False
     assert by_bottom[88.0]["mitigated_wick"] is False
     assert by_bottom[88.0]["mitigated_close"] is False
+    # _base_df leaves high/low set so wide they encompass any OB range —
+    # confirm the touch counter rides along and exposes the field. Per-
+    # touch semantics get exercised in test_analyze_ob_touch_count_*.
+    assert "touch_count" in by_bottom[88.0]
+
+
+def test_analyze_ob_touch_count_zero_when_price_stays_outside():
+    # v0.5.1: touch_count counts contiguous runs of later bars whose
+    # [low..high] intersects the OB's [bottom..top]. If no later bar ever
+    # touches the zone, count is 0 ("fresh").
+    from wickworks.smc import analyze
+
+    df = _base_df(n=200, price_close=100.0)
+    # OB at bars 90..95 (placed below the default base_df highs/lows so
+    # we can carve a no-touch window after it).
+    df.loc[20, "ob_type"] = 1
+    df.loc[20, "ob_top"] = 50.0
+    df.loc[20, "ob_bottom"] = 48.0
+    # Force every bar after 20 to be high above the OB so nothing touches.
+    df.loc[21:, "high"] = 99.0
+    df.loc[21:, "low"] = 70.0
+    df.loc[21:, "close"] = 90.0
+    df.loc[21:, "open"] = 90.0
+
+    out = analyze(df, "H1")
+    obs = out["order_blocks"]
+    assert any(ob["bottom"] == 48.0 and ob["touch_count"] == 0 for ob in obs)
+
+
+def test_analyze_ob_touch_count_counts_distinct_events():
+    # Two separate dips into the OB zone, with bars in between fully above
+    # the zone. Should count as 2 touch events, not 2× the number of bars
+    # that happened to be inside.
+    from wickworks.smc import analyze
+
+    df = _base_df(n=200, price_close=100.0)
+    df.loc[10, "ob_type"] = 1
+    df.loc[10, "ob_top"] = 50.0
+    df.loc[10, "ob_bottom"] = 48.0
+    # Carve all post-OB bars well above the OB by default.
+    df.loc[11:, "high"] = 99.0
+    df.loc[11:, "low"] = 70.0
+    df.loc[11:, "close"] = 90.0
+    df.loc[11:, "open"] = 90.0
+    # First dip: bars 20..22 reach into 48-50.
+    df.loc[20:22, "low"] = 47.0
+    df.loc[20:22, "high"] = 55.0
+    # Bars 23..29 are clear above the OB again (already 70..99).
+    # Second dip: bars 30..31 reach back in.
+    df.loc[30:31, "low"] = 47.0
+    df.loc[30:31, "high"] = 49.5
+
+    out = analyze(df, "H1")
+    by_bottom = {ob["bottom"]: ob for ob in out["order_blocks"]}
+    assert by_bottom[48.0]["touch_count"] == 2
 
 
 def test_analyze_ob_sorted_by_distance_ascending():
