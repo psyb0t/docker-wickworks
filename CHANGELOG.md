@@ -4,6 +4,20 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.5.2 — 2026-06-08
+
+Republish of v0.5.1. No source changes — pyproject version bump only.
+
+- The `v0.5.1` tag on remote points at an intermediate commit that
+  was missing ~98 lines of the touch_events / touch_count work the
+  v0.5.1 entry below describes. The complete code did land on `main`
+  (commit `53f1ecf`) but the tag was not re-pointed (force-moving a
+  published tag would have left the previous Docker image cached at
+  the same name).
+- v0.5.2 re-tags `main` at the complete code so the published Docker
+  image and the v0.5.1 entry below match. Consumers pinning to
+  `v0.5.1` need to switch to `v0.5.2` to pick up the missing logic.
+
 ## v0.5.1 — 2026-06-08
 
 Per-OB `touch_count` + raw `touch_events` for trader-eye freshness.
