@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.0 — 2026-07-25
+
+MCP server — everything the REST API does is now also available over the Model Context Protocol.
+
+- **New streamable-HTTP MCP server mounted at `/mcp`** (same process, stateless). Tools mirror the REST surface: `health`, `list_indicators` (the registered indicator types), `metadata` (the output-path catalog), and `compute` (bars + an indicator selection in, primitives out — the same envelope as `POST /`). The MCP transport's DNS-rebinding Host check is disabled so the endpoint works behind any hostname / reverse proxy; gate access at your proxy. See `src/wickworks/mcp_server.py` + the mount in `src/wickworks/server.py`.
+- **Agent skill + plugin.** Added `.agents/skills/wickworks/` (documents the REST + MCP surface, the indicator catalog, and setup) and the `@psyb0t/wickworks` OpenClaw plugin (`.agents/plugins/wickworks/`) — a thin stdio↔HTTP bridge to `/mcp/`. CI now publishes both to ClawHub on tag pushes.
+- New dependency `mcp==1.27.1` (exact-pinned, within the supply-chain `exclude-newer` gate).
+- README gains an **MCP** section; the test suite gains `tests/test_mcp.py` (contract tests through the mounted MCP app). No change to the REST API surface.
+
 ## v0.5.2 — 2026-06-08
 
 Republish of v0.5.1. No source changes — pyproject version bump only.

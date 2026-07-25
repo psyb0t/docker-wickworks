@@ -8,19 +8,18 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import asynccontextmanager
 from typing import Any
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from numpyencoder import NumpyEncoder
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import __version__, config
-from .compute import (
-    InsufficientBarsError,
-    UnknownIndicatorError,
-    compute_dataframe,
-)
+from .compute import InsufficientBarsError, UnknownIndicatorError, compute_dataframe
+from .mcp_server import build_mcp_server
 from .metadata import all_metadata
 from .schemas import ComputeRequest, HealthResponse
 
@@ -47,6 +46,39 @@ logging.basicConfig(
 )
 log = logging.getLogger("wickworks")
 
+# Built once so the lifespan can drive the streamable-HTTP session manager for
+# the app's lifetime. streamable_http_path="/" (set inside build_mcp_server)
+# keeps the mount at /mcp from double-prefixing.
+_MCP_SERVER = build_mcp_server()
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    # MCP's streamable-HTTP transport needs its session manager running for the
+    # whole app lifetime.
+    async with _MCP_SERVER.session_manager.run():
+        yield
+
+
+class _McpTrailingSlashMiddleware:
+    """Rewrite bare ``/mcp`` -> ``/mcp/`` before routing.
+
+    Starlette's ``Mount("/mcp", ...)`` serves at ``/mcp/*`` but 307-redirects the
+    bare ``/mcp`` form; some MCP clients don't follow that redirect on a POST, so
+    normalise the path here and hand the mounted app the slashed form directly.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get("type") == "http" and scope.get("path") == "/mcp":
+            scope = dict(scope)
+            scope["path"] = "/mcp/"
+            scope["raw_path"] = b"/mcp/"
+        await self._app(scope, receive, send)
+
+
 app = FastAPI(
     title="wickworks",
     version=__version__,
@@ -54,7 +86,10 @@ app = FastAPI(
         "Stateless OHLC primitives service. Bars + indicator selection in, "
         "primitives out. No scoring, no opinions."
     ),
+    lifespan=_lifespan,
 )
+
+app.add_middleware(_McpTrailingSlashMiddleware)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -120,3 +155,9 @@ def compute(req: ComputeRequest) -> JSONResponse:
 
     body = json.dumps(result, cls=NumpyEncoder)
     return JSONResponse(content=_camelize_keys(json.loads(body)))
+
+
+# MCP streamable-HTTP surface — tools mirror the REST endpoints so an agent can
+# drive wickworks over JSON-RPC. streamable_http_path="/" avoids a /mcp/mcp
+# double-prefix; the bare-/mcp form is normalised by the middleware above.
+app.mount("/mcp", _MCP_SERVER.streamable_http_app())

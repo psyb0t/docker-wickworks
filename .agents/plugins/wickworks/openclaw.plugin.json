@@ -1,0 +1,39 @@
+{
+  "name": "@psyb0t/wickworks",
+  "id": "@psyb0t/wickworks",
+  "version": "0.0.0",
+  "type": "code-plugin",
+  "summary": "Wire an OpenClaw agent to a self-hosted wickworks service over MCP — OHLC bars in, technical indicators + Smart-Money-Concepts primitives out.",
+  "description": "A thin stdio<->HTTP bridge that connects an MCP client (OpenClaw, Claude, Cursor, Codex, ...) to a running wickworks instance's MCP endpoint (/mcp/), exposing its stateless technical-analysis tools: health, list_indicators (the registered indicator types), metadata (the human-readable catalog of every output path), and compute (candlestick bars + an indicator/SMC selection in, computed primitives out — no scoring, no opinions, no state). wickworks is self-hosted — you run the server yourself and point this bridge at it. See https://github.com/psyb0t/docker-wickworks.",
+  "extensions": ["./bin/cli.js"],
+  "compat": {
+    "pluginApi": ">=2026.3.24-beta.2"
+  },
+  "build": {
+    "openclawVersion": "2026.3.24-beta.2"
+  },
+  "environment": {
+    "WICKWORKS_URL": {
+      "required": true,
+      "description": "Base URL of your running wickworks server, e.g. http://localhost:8000 (the bridge appends /mcp/)."
+    },
+    "WICKWORKS_TOKEN": {
+      "required": false,
+      "description": "Bearer token — only if you front wickworks with a reverse proxy that requires connection-level auth (wickworks itself ships auth-less)."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "required": ["url"],
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "Base URL of your running wickworks server, e.g. http://localhost:8000 (the bridge appends /mcp/)."
+      },
+      "token": {
+        "type": "string",
+        "description": "Bearer token — only if you front wickworks with a reverse proxy that requires connection-level auth (wickworks itself ships auth-less)."
+      }
+    }
+  }
+}

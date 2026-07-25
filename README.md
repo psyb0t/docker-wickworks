@@ -24,6 +24,7 @@ Built on `pandas_ta` and `smartmoneyconcepts`, wrapped in a FastAPI server, lock
   - [Request fields](#request-fields)
   - [Response](#response)
   - [Errors](#errors)
+- [MCP](#mcp)
 - [Configuration](#configuration)
 - [Architecture](#architecture)
 - [Development](#development)
@@ -770,6 +771,32 @@ When you ask for an indicator that needs more bars than you sent (e.g. `sma` `le
 ```
 
 The per-indicator requirement is derived from its params (`length`, `slow`, `signal`, etc.) — not a global floor. SMC-backed outputs (`orderBlocks`, `fvgs`, `bosChoch`, summaries, …) share a baseline floor of `MIN_BARS` (default 50) because the analysis pipeline assumes meaningful history.
+
+## MCP
+
+Everything `POST /` does is also available over the [Model Context Protocol](https://modelcontextprotocol.io) — wickworks mounts a **streamable-HTTP MCP server at `/mcp`** in the same process, so an agent can drive it over JSON-RPC without the REST client. It's **stateless** (`stateless_http=True` — no `initialize` handshake, JSON responses rather than SSE) and the tools mirror the REST surface one-for-one:
+
+| Tool | Args | Mirrors |
+| ---- | ---- | ------- |
+| `health` | — | `GET /health` |
+| `list_indicators` | — | the registered indicator types (the keys `compute` accepts) |
+| `metadata` | — | `GET /metadata` |
+| `compute` | `bars`, `indicators`, `timeframe?`, `symbol?`, `recentBars?` | `POST /` (same envelope back) |
+
+```bash
+# Native remote MCP (Claude Code, Cursor, … — no bridge needed)
+claude mcp add --transport http wickworks http://localhost:8000/mcp
+
+# Raw JSON-RPC — stateless, call tools/call directly
+curl -s http://localhost:8000/mcp/ \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
+       "params":{"name":"compute","arguments":{
+         "bars":[/* ...OHLC... */],"indicators":{"rsi":true}}}}'
+```
+
+The MCP transport's DNS-rebinding Host check is disabled so the endpoint works behind any hostname / reverse proxy — put access control at your proxy, not the app. For MCP clients that only speak local stdio servers, the [`@psyb0t/wickworks`](.agents/plugins/wickworks) OpenClaw plugin is a thin stdio↔HTTP bridge to `/mcp/`.
 
 ## Configuration
 

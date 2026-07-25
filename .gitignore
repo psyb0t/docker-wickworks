@@ -57,3 +57,4 @@ pyrightconfig.json
 .env
 .env.*
 .envrc
+.testing/
