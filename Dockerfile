@@ -31,6 +31,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # -----------------------------------------------------------------------------
 FROM python:3.12-slim-bookworm@sha256:d193c6f51a7dbd10395d6328de3a7edb0516fb0608ca138036576f574c3e07d2 AS runtime
 
+# Ownership marker for the official MCP Registry (registry.modelcontextprotocol.io):
+# must equal server.json's `name`. The registry verifies this to prove we own
+# the io.github.psyb0t/wickworks namespace entry pointing at this image.
+LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/wickworks"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \

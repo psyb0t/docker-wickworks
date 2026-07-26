@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.2 — 2026-07-26
+
+Listed on the official MCP Registry — no behavior or API change.
+
+- Added `server.json` — published to the official Model Context Protocol Registry (`registry.modelcontextprotocol.io`) as `io.github.psyb0t/wickworks`, pointing at the `psyb0t/wickworks` Docker image (Streamable-HTTP MCP at `:8000/mcp`). Ownership is proven by an `io.modelcontextprotocol.server.name` LABEL on the runtime image; publishing runs on tag pushes via GitHub OIDC (secretless). Also added a `glama.json` maintainer claim. The MCP/REST surface itself is unchanged.
+
 ## v0.6.1 — 2026-07-26
 
 Third-party license notices. Documentation only, no behavior change.
