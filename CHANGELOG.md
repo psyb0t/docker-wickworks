@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.1 — 2026-07-26
+
+Third-party license notices. Documentation only, no behavior change.
+
+- Added `THIRD_PARTY.md` + `LICENSES/` documenting the MIT-licensed smart-money-concepts port used in the SMC indicator (© 2020 NeuralNine). The project's own code stays WTFPL.
+
 ## v0.6.0 — 2026-07-25
 
 MCP server — everything the REST API does is now also available over the Model Context Protocol.
