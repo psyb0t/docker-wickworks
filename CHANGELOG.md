@@ -4,6 +4,10 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.3 — 2026-07-26
+
+- Shortened `server.json`'s `description` to ≤100 chars — the official MCP Registry rejects longer ones (HTTP 422). No behavior change; completes the v0.6.2 registry listing.
+
 ## v0.6.2 — 2026-07-26
 
 Listed on the official MCP Registry — no behavior or API change.
