@@ -1,6 +1,6 @@
 {
   "name": "wickworks",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "description": "Stateless OHLC primitives service — candlestick bars in, technical indicators and Smart-Money-Concepts objects out, over REST and MCP.",
   "author": { "name": "psyb0t", "url": "https://github.com/psyb0t" },
   "homepage": "https://github.com/psyb0t/docker-wickworks",

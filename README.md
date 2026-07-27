@@ -816,9 +816,10 @@ Claude Code prompts for the wickworks URL and, if a reverse proxy in front of wi
 
 ```bash
 codex plugin marketplace add psyb0t/agents
+codex plugin add wickworks@psyb0t
 ```
 
-Codex also picks the skill up automatically in any repo containing `.agents/skills/`, and invokes it as `$wickworks`.
+Installed via the marketplace, the skill invokes as `$wickworks:wickworks`. Codex also picks the skill up automatically, no install needed, in any repo containing `.agents/skills/` — there it invokes as plain `$wickworks`.
 
 ### OpenClaw
 

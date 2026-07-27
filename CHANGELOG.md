@@ -4,6 +4,11 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.7 — 2026-07-27
+
+- Fixed the README's `## Agent integrations` → Codex subsection: it told readers to run `codex plugin marketplace add psyb0t/agents` and then stopped, never showing the actual install command. Added `codex plugin add wickworks@psyb0t`.
+- Clarified that the skill's invocation form depends on how Codex picked it up: installed via the marketplace it's `$wickworks:wickworks`; picked up automatically from a repo's own `.agents/skills/` (no install needed) it's plain `$wickworks`.
+
 ## v0.6.6 — 2026-07-27
 
 - Added `.agents/.claude-plugin/plugin.json` and `.agents/.codex-plugin/plugin.json` — makes the existing `.agents/skills/wickworks` skill and `.agents/plugins/wickworks` MCP bridge installable natively via `claude plugin install wickworks@psyb0t` and `codex plugin marketplace add psyb0t/agents`. The Claude Code manifest declares `userConfig` for the wickworks URL and optional bearer token so the client prompts for them instead of requiring manual env exports.
