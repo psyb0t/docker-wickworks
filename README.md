@@ -1,5 +1,6 @@
 # wickworks
 
+[![CI](https://github.com/psyb0t/docker-wickworks/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/docker-wickworks/actions/workflows/pipeline.yml)
 [![version](https://raw.githubusercontent.com/psyb0t/docker-wickworks/badges/version.svg)](https://github.com/psyb0t/docker-wickworks/releases)
 [![license](https://raw.githubusercontent.com/psyb0t/docker-wickworks/badges/license.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/psyb0t/wickworks?style=flat-square)](https://hub.docker.com/r/psyb0t/wickworks)
