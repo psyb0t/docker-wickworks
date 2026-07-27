@@ -4,6 +4,11 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.6 — 2026-07-27
+
+- Added `.agents/.claude-plugin/plugin.json` and `.agents/.codex-plugin/plugin.json` — makes the existing `.agents/skills/wickworks` skill and `.agents/plugins/wickworks` MCP bridge installable natively via `claude plugin install wickworks@psyb0t` and `codex plugin marketplace add psyb0t/agents`. The Claude Code manifest declares `userConfig` for the wickworks URL and optional bearer token so the client prompts for them instead of requiring manual env exports.
+- Added a **README** `## Agent integrations` section (with Table of Contents entry) documenting the Claude Code, Codex, and OpenClaw install paths, including the `openclaw plugins install clawhub:@psyb0t/wickworks` MCP bridge line.
+
 ## v0.6.5 — 2026-07-27
 
 - Added a GitHub Actions CI status badge to the README.

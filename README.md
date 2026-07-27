@@ -25,6 +25,7 @@ Built on `pandas_ta` and `smartmoneyconcepts`, wrapped in a FastAPI server, lock
   - [Response](#response)
   - [Errors](#errors)
 - [MCP](#mcp)
+- [Agent integrations](#agent-integrations)
 - [Configuration](#configuration)
 - [Architecture](#architecture)
 - [Development](#development)
@@ -797,6 +798,43 @@ curl -s http://localhost:8000/mcp/ \
 ```
 
 The MCP transport's DNS-rebinding Host check is disabled so the endpoint works behind any hostname / reverse proxy — put access control at your proxy, not the app. For MCP clients that only speak local stdio servers, the [`@psyb0t/wickworks`](.agents/plugins/wickworks) OpenClaw plugin is a thin stdio↔HTTP bridge to `/mcp/`.
+
+## Agent integrations
+
+The [skill](.agents/skills/wickworks) works in any agent that reads `.agents/skills/`, and installs natively in the clients below.
+
+### Claude Code
+
+```bash
+claude plugin marketplace add psyb0t/agents
+claude plugin install wickworks@psyb0t
+```
+
+Claude Code prompts for the wickworks URL and, if a reverse proxy in front of wickworks requires auth, the bearer token — the token is stored in your OS keychain.
+
+### Codex
+
+```bash
+codex plugin marketplace add psyb0t/agents
+```
+
+Codex also picks the skill up automatically in any repo containing `.agents/skills/`, and invokes it as `$wickworks`.
+
+### OpenClaw
+
+The skill is published to ClawHub on every release:
+
+```bash
+openclaw skills install @psyb0t/wickworks
+```
+
+For MCP clients that speak local stdio, the [`@psyb0t/wickworks`](.agents/plugins/wickworks) plugin bridges to wickworks' `/mcp` endpoint:
+
+```bash
+openclaw plugins install clawhub:@psyb0t/wickworks
+```
+
+Then set `WICKWORKS_URL` (and `WICKWORKS_TOKEN` if a reverse proxy in front of wickworks requires one).
 
 ## Configuration
 

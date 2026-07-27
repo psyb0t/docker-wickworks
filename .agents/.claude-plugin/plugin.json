@@ -1,0 +1,30 @@
+{
+  "name": "wickworks",
+  "description": "Stateless OHLC primitives service — candlestick bars in, technical indicators and Smart-Money-Concepts objects out, over REST and MCP.",
+  "author": { "name": "psyb0t", "url": "https://github.com/psyb0t" },
+  "homepage": "https://github.com/psyb0t/docker-wickworks",
+  "license": "WTFPL",
+  "keywords": [
+    "technical-analysis",
+    "technical-indicators",
+    "smart-money-concepts",
+    "ohlc",
+    "candlestick",
+    "trading",
+    "mcp"
+  ],
+  "userConfig": {
+    "wickworks_url": {
+      "type": "string",
+      "title": "wickworks URL",
+      "description": "Base URL of your running wickworks instance (WICKWORKS_URL), e.g. http://localhost:8000. wickworks is self-hosted — you run the container yourself.",
+      "required": true
+    },
+    "wickworks_token": {
+      "type": "string",
+      "title": "wickworks bearer token",
+      "description": "Bearer token (WICKWORKS_TOKEN) for a reverse proxy fronting wickworks, only if that proxy enforces auth — wickworks itself ships auth-less.",
+      "sensitive": true
+    }
+  }
+}
