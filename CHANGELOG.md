@@ -4,6 +4,16 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.8 — 2026-08-01
+
+Infrastructure only. No code in this repo changed — every commit since v0.6.7 touches `.github/workflows/`.
+
+- The pipeline was split: building and publishing stay in `pipeline.yml`, and everything that leaves the host now lives beside it in `mirror-and-archive.yml`.
+- The repo is mirrored to Codeberg as well as GitLab.
+- It is archived to the Wayback Machine, Software Heritage and archive.org.
+- Issues opened on either mirror are copied back to GitHub every six hours, and closed here when the original closes.
+- Pull requests are switched off on the mirrors: they are force-pushed from GitHub, so anything merged there would be destroyed by the next sync. Issues and forking stay enabled.
+
 ## v0.6.7 — 2026-07-27
 
 - Fixed the README's `## Agent integrations` → Codex subsection: it told readers to run `codex plugin marketplace add psyb0t/agents` and then stopped, never showing the actual install command. Added `codex plugin add wickworks@psyb0t`.
