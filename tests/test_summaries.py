@@ -10,9 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import post  # type: ignore[import-not-found]
-
 
 _SUMMARY_INDICATORS = [
     "momentum",
@@ -33,9 +31,7 @@ def summary_response(eurusd_h1_fixture: dict[str, Any]) -> dict[str, Any]:
 
 
 @pytest.mark.parametrize("indicator", _SUMMARY_INDICATORS)
-def test_summary_is_non_empty_dict(
-    summary_response: dict[str, Any], indicator: str
-) -> None:
+def test_summary_is_non_empty_dict(summary_response: dict[str, Any], indicator: str) -> None:
     val = summary_response[indicator]
     assert isinstance(val, dict)
     assert val, f"{indicator} returned empty dict on real data"

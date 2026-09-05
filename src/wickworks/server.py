@@ -18,7 +18,8 @@ from numpyencoder import NumpyEncoder
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import __version__, config
-from .compute import InsufficientBarsError, UnknownIndicatorError, compute_dataframe
+from .compute import compute_dataframe
+from .errors import InsufficientBarsError, InvalidIndicatorSpecError, UnknownIndicatorError
 from .mcp_server import build_mcp_server
 from .metadata import all_metadata
 from .schemas import ComputeRequest, HealthResponse
@@ -135,9 +136,8 @@ def compute(req: ComputeRequest) -> JSONResponse:
             indicators=req.indicators,
             timeframe=req.timeframe,
             symbol=req.symbol,
-            recent_bars=req.recent_bars,
         )
-    except UnknownIndicatorError as e:
+    except (InvalidIndicatorSpecError, UnknownIndicatorError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except InsufficientBarsError as e:
         raise HTTPException(
@@ -151,7 +151,7 @@ def compute(req: ComputeRequest) -> JSONResponse:
         ) from e
     except Exception as e:
         log.exception("compute failed for %s %s", req.symbol, req.timeframe)
-        raise HTTPException(status_code=500, detail=f"compute failed: {e}") from e
+        raise HTTPException(status_code=500, detail="indicator computation failed") from e
 
     body = json.dumps(result, cls=NumpyEncoder)
     return JSONResponse(content=_camelize_keys(json.loads(body)))

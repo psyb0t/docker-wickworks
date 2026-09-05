@@ -10,13 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import post  # type: ignore[import-not-found]
 
 
-def _approx_equal_series(
-    a: list[float | None], b: list[float | None], rtol: float = 1e-9
-) -> bool:
+def _approx_equal_series(a: list[float | None], b: list[float | None], rtol: float = 1e-9) -> bool:
     if len(a) != len(b):
         return False
     for x, y in zip(a, b):
@@ -67,9 +64,9 @@ def test_pairwise_indicator_isolation(
         if isinstance(solo, dict):
             assert solo.keys() == combined_val.keys()
             for k in solo:
-                assert _approx_equal_series(solo[k], combined_val[k]), (
-                    f"{name}.{k}: solo != combined"
-                )
+                assert _approx_equal_series(
+                    solo[k], combined_val[k]
+                ), f"{name}.{k}: solo != combined"
             return
         assert solo == combined_val
 

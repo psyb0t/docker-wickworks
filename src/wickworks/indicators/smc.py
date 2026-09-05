@@ -3,18 +3,17 @@
 import numpy as np
 import pandas as pd
 
-from ._helpers import vol_col
-
 
 def add(df: pd.DataFrame, swing_length: int = 15) -> pd.DataFrame:
     """Add SMC columns: swing H/L, OB, FVG, BOS/CHoCH."""
     from smartmoneyconcepts.smc import smc
 
-    vol = vol_col(df)
     ohlc = df[["open", "high", "low", "close"]].copy()
-    ohlc["volume"] = df[vol].values
+    ohlc["volume"] = df["volume"].values
 
     swing = smc.swing_highs_lows(ohlc, swing_length=swing_length)
+    swing.iloc[:swing_length] = np.nan
+    swing.iloc[-swing_length:] = np.nan
     df["swing_type"] = swing["HighLow"].fillna(0).astype(int)
     df["swing_level"] = swing["Level"]
 
@@ -38,6 +37,10 @@ def add(df: pd.DataFrame, swing_length: int = 15) -> pd.DataFrame:
     df["ob_type"] = obs_wick["OB"].fillna(0).astype(int)
     df["ob_top"] = obs_wick["Top"]
     df["ob_bottom"] = obs_wick["Bottom"]
+    if "DetectedIndex" in obs_wick.columns:
+        df["ob_confirmed_idx"] = obs_wick["DetectedIndex"]
+    else:
+        df["ob_confirmed_idx"] = np.nan
     ob_type_arr = df["ob_type"].values
 
     # Wick-criterion: an OB is mitigated when a later bar's wick fully

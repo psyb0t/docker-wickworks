@@ -1,6 +1,7 @@
 PORT ?= 8000
 
 DEV_IMAGE := psyb0t/wickworks-dev:latest
+TEST_IMAGE := psyb0t/wickworks:test
 
 PYPROJECT := pyproject.toml
 BUMP_HOST := bash scripts/bump_exclude_newer.sh $(PYPROJECT)
@@ -40,7 +41,7 @@ DEV_RUN_DIND := docker run --rm \
 	-v $(DOCKER_SOCK):$(DOCKER_SOCK) \
 	$(DEV_IMAGE)
 
-.PHONY: help dev-image shell \
+.PHONY: help dev-image test-image shell \
         pkg-lock pkg-upgrade pkg-add pkg-remove pkg-update \
         run test test-unit test-docker lint format check clean
 
@@ -98,17 +99,20 @@ run: dev-image ## Run server in the dev container (port-forwarded)
 		$(DEV_IMAGE) \
 		uvicorn wickworks.server:app --host 0.0.0.0 --port 8000
 
-test: dev-image ## Run ALL tests (unit + docker-in-docker integration)
+test-image: ## Build the production image exercised by Docker tests
+	docker build -t $(TEST_IMAGE) .
+
+test: dev-image test-image ## Run ALL tests (unit + docker-in-docker integration)
 	$(DEV_RUN_DIND) pytest --override-ini="addopts=-v --tb=short"
 
 test-unit: dev-image ## Run only in-process unit tests
 	$(DEV_RUN) pytest
 
-test-docker: dev-image ## Run only the docker integration tests
+test-docker: dev-image test-image ## Run only the docker integration tests
 	$(DEV_RUN_DIND) pytest -m docker --override-ini="addopts=-v --tb=short"
 
 lint: dev-image ## Lint
-	$(DEV_RUN) flake8 src tests
+	$(DEV_RUN) flake8 --extend-ignore=E203,E501 src tests
 	$(DEV_RUN) mypy src
 
 format: dev-image ## Format

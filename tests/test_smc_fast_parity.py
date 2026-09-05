@@ -72,14 +72,12 @@ def fast_outputs():
     return {"df": df, "sh": sh, "ob": ob, "fvg": fvg, "bosc": bosc}
 
 
-def _frames_equal(
-    a: pd.DataFrame, b: pd.DataFrame, atol: float = 1e-9
-) -> None:
-    assert list(a.columns) == list(b.columns), (
-        f"column mismatch: {list(a.columns)} vs {list(b.columns)}"
-    )
+def _frames_equal(a: pd.DataFrame, b: pd.DataFrame, atol: float = 1e-9) -> None:
+    assert set(b.columns).issubset(
+        a.columns
+    ), f"expected columns missing: {list(a.columns)} vs {list(b.columns)}"
     assert len(a) == len(b), f"length mismatch: {len(a)} vs {len(b)}"
-    for col in a.columns:
+    for col in b.columns:
         av = a[col].to_numpy(dtype=float)
         bv = b[col].to_numpy(dtype=float)
         nan_a = np.isnan(av)
@@ -87,15 +85,11 @@ def _frames_equal(
         assert np.array_equal(nan_a, nan_b), f"NaN pattern differs in {col}"
         mask = ~nan_a
         if mask.any():
-            assert np.allclose(av[mask], bv[mask], atol=atol), (
-                f"values differ in {col}"
-            )
+            assert np.allclose(av[mask], bv[mask], atol=atol), f"values differ in {col}"
 
 
 def test_swing_highs_lows_parity(fast_outputs, upstream_smc):
-    expected = upstream_smc.swing_highs_lows(
-        fast_outputs["df"], swing_length=15
-    )
+    expected = upstream_smc.swing_highs_lows(fast_outputs["df"], swing_length=15)
     _frames_equal(fast_outputs["sh"], expected)
 
 
@@ -114,9 +108,7 @@ def test_fvg_join_consecutive_parity(upstream_smc):
 
 
 def test_ob_parity(fast_outputs, upstream_smc):
-    expected = upstream_smc.ob(
-        fast_outputs["df"], fast_outputs["sh"], close_mitigation=False
-    )
+    expected = upstream_smc.ob(fast_outputs["df"], fast_outputs["sh"], close_mitigation=False)
     _frames_equal(fast_outputs["ob"], expected)
 
 
@@ -131,9 +123,7 @@ def test_ob_close_mitigation_parity(upstream_smc):
 
 
 def test_bos_choch_parity_close_break(fast_outputs, upstream_smc):
-    expected = upstream_smc.bos_choch(
-        fast_outputs["df"], fast_outputs["sh"], close_break=True
-    )
+    expected = upstream_smc.bos_choch(fast_outputs["df"], fast_outputs["sh"], close_break=True)
     _frames_equal(fast_outputs["bosc"], expected)
 
 

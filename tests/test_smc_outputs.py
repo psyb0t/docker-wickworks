@@ -10,18 +10,14 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import post  # type: ignore[import-not-found]
-
 
 _SMC_INDICATORS = ["orderBlocks", "fvg", "bosChoch", "swingLevels", "srLevels"]
 
 
 @pytest.fixture(scope="module")
 def smc_response(eurusd_h1_fixture: dict[str, Any]) -> dict[str, Any]:
-    return post(
-        eurusd_h1_fixture["bars"], {ind: True for ind in _SMC_INDICATORS}
-    )
+    return post(eurusd_h1_fixture["bars"], {ind: True for ind in _SMC_INDICATORS})
 
 
 @pytest.mark.parametrize("indicator", _SMC_INDICATORS)

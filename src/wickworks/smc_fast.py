@@ -390,6 +390,7 @@ def _ob_bullish_loop(
     high_volume,
     percentage,
     mitigated_index,
+    detected_index,
     breaker,
 ):
     """Detect bullish order blocks in a single pass."""
@@ -468,11 +469,10 @@ def _ob_bullish_loop(
         high_volume[ob_idx] = vol_cur + vol_p1
         mx = max(high_volume[ob_idx], low_volume[ob_idx])
         if mx != 0.0:
-            percentage[ob_idx] = (
-                min(high_volume[ob_idx], low_volume[ob_idx]) / mx * 100.0
-            )
+            percentage[ob_idx] = min(high_volume[ob_idx], low_volume[ob_idx]) / mx * 100.0
         else:
             percentage[ob_idx] = 100.0
+        detected_index[ob_idx] = i
         active[n_active] = ob_idx
         n_active += 1
 
@@ -496,6 +496,7 @@ def _ob_bearish_loop(
     high_volume,
     percentage,
     mitigated_index,
+    detected_index,
     breaker,
 ):
     """Detect bearish order blocks in a single pass."""
@@ -574,11 +575,10 @@ def _ob_bearish_loop(
         high_volume[ob_idx] = vol_p2
         mx = max(high_volume[ob_idx], low_volume[ob_idx])
         if mx != 0.0:
-            percentage[ob_idx] = (
-                min(high_volume[ob_idx], low_volume[ob_idx]) / mx * 100.0
-            )
+            percentage[ob_idx] = min(high_volume[ob_idx], low_volume[ob_idx]) / mx * 100.0
         else:
             percentage[ob_idx] = 100.0
+        detected_index[ob_idx] = i
         active[n_active] = ob_idx
         n_active += 1
 
@@ -605,6 +605,7 @@ def fast_ob(ohlc, swing_highs_lows, close_mitigation=False):
     high_volume = np.zeros(n, dtype=np.float64)
     percentage = np.zeros(n, dtype=np.float64)
     mitigated_index = np.zeros(n, dtype=np.int32)
+    detected_index = np.zeros(n, dtype=np.int32)
     breaker = np.zeros(n, dtype=np.bool_)
 
     _ob_bullish_loop(
@@ -625,6 +626,7 @@ def fast_ob(ohlc, swing_highs_lows, close_mitigation=False):
         high_volume,
         percentage,
         mitigated_index,
+        detected_index,
         breaker,
     )
 
@@ -646,6 +648,7 @@ def fast_ob(ohlc, swing_highs_lows, close_mitigation=False):
         high_volume,
         percentage,
         mitigated_index,
+        detected_index,
         breaker,
     )
 
@@ -654,6 +657,7 @@ def fast_ob(ohlc, swing_highs_lows, close_mitigation=False):
     bottom_f = np.where(~np.isnan(ob_f), bottom_arr, np.nan)
     volume_f = np.where(~np.isnan(ob_f), ob_volume, np.nan)
     mitigated_f = np.where(~np.isnan(ob_f), mitigated_index.astype(np.float64), np.nan)
+    detected_f = np.where(~np.isnan(ob_f), detected_index.astype(np.float64), np.nan)
     pct_f = np.where(~np.isnan(ob_f), percentage, np.nan)
 
     return pd.concat(
@@ -663,6 +667,7 @@ def fast_ob(ohlc, swing_highs_lows, close_mitigation=False):
             pd.Series(bottom_f, name="Bottom"),
             pd.Series(volume_f, name="OBVolume"),
             pd.Series(mitigated_f, name="MitigatedIndex"),
+            pd.Series(detected_f, name="DetectedIndex"),
             pd.Series(pct_f, name="Percentage"),
         ],
         axis=1,

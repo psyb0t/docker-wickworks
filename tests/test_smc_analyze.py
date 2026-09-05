@@ -52,7 +52,7 @@ def _base_df(n: int = 100, price_close: float = 100.0) -> pd.DataFrame:
     cols["high"] = np.full(n, price_close + 1.0)
     cols["low"] = np.full(n, price_close - 1.0)
     cols["close"] = np.full(n, price_close)
-    cols["tick_volume"] = np.full(n, 1000)
+    cols["volume"] = np.full(n, 1000)
     return pd.DataFrame(cols)
 
 
@@ -381,10 +381,10 @@ def test_analyze_recent_range_uses_tail_20():
 
     df = _base_df(n=100, price_close=100.0)
     # Boost a high outside the last 20 bars and inside it.
-    df.loc[10, "high"] = 200.0   # outside → period_high, NOT recent
-    df.loc[90, "high"] = 150.0   # inside → recent.high
-    df.loc[5, "low"] = 50.0      # outside → period_low
-    df.loc[95, "low"] = 70.0     # inside → recent.low
+    df.loc[10, "high"] = 200.0  # outside → period_high, NOT recent
+    df.loc[90, "high"] = 150.0  # inside → recent.high
+    df.loc[5, "low"] = 50.0  # outside → period_low
+    df.loc[95, "low"] = 70.0  # inside → recent.low
 
     out = analyze(df, "H1")
     rng = out["recent_range"]
@@ -502,9 +502,7 @@ def test_analyze_tiny_crypto_price_preserves_precision(tiny_price: float):
     ],
     ids=["plus_inf", "minus_inf", "nan", "all_invalid_mix", "empty", "all_valid"],
 )
-def test_series_sanitizes_indicator_output(
-    series_in: list, expected: list
-):
+def test_series_sanitizes_indicator_output(series_in: list, expected: list):
     """_series is the JSON projection for every series indicator. CCI on a
     flat window produces ±Inf from (tp-mean)/(c*mad) when mad=0; pandas_ta
     primitives can also emit Inf from divide-by-zero edge cases. This lock

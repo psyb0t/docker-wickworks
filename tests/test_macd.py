@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import (  # type: ignore[import-not-found]
     assert_last_bar_matches,
     bars_to_df,
@@ -56,9 +55,5 @@ def test_macd_full_matches_closed_form_on_real_data(
     # Higher tolerance on signal/hist — signal is EMA-of-EMA, accumulated
     # float drift from a 26-bar warmup gap into a 9-bar EMA.
     assert_last_bar_matches(out["macd"]["macd"], expected["macd"], rtol=1e-5)
-    assert_last_bar_matches(
-        out["macd"]["signal"], expected["signal"], rtol=1e-3, atol=1e-6
-    )
-    assert_last_bar_matches(
-        out["macd"]["hist"], expected["hist"], rtol=1e-3, atol=1e-6
-    )
+    assert_last_bar_matches(out["macd"]["signal"], expected["signal"], rtol=1e-3, atol=1e-6)
+    assert_last_bar_matches(out["macd"]["hist"], expected["hist"], rtol=1e-3, atol=1e-6)

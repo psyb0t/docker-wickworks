@@ -2,7 +2,7 @@
 
 Each module adds indicator columns to a DataFrame with OHLCV data.
 Expected input columns (lowercase):
-    time, open, high, low, close, tick_volume (or volume)
+    time, open, high, low, close, volume
 """
 
 import os
@@ -20,7 +20,6 @@ from . import (  # noqa: E402
     momentum_mfi,
     momentum_rsi,
     momentum_stochastic,
-    overextension,
     price_action_donchian,
     price_action_swing_structure,
     price_action_vwap,
@@ -49,5 +48,4 @@ def add_all(df: pd.DataFrame) -> pd.DataFrame:
     df = volume_analysis.add(df)
     df = smc.add(df)
     df = price_action_swing_structure.add(df)
-    df = overextension.add(df)
     return df

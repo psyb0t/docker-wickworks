@@ -80,7 +80,7 @@ def _ramp_bars(n: int, base: float = 100.0) -> list[dict[str, Any]]:
                 "high": close + 1.0,
                 "low": close - 1.0,
                 "close": close,
-                "tickVolume": 1000 + i,
+                "volume": 1000 + i,
             }
         )
     return bars
@@ -88,8 +88,12 @@ def _ramp_bars(n: int, base: float = 100.0) -> list[dict[str, Any]]:
 
 def test_tools_list_exposes_every_tool(client: TestClient) -> None:
     body = _rpc(client, "tools/list", {})
-    names = {t["name"] for t in body["result"]["tools"]}
+    tools = body["result"]["tools"]
+    names = {tool["name"] for tool in tools}
     assert {"health", "list_indicators", "metadata", "compute"} <= names
+    compute_tool = next(tool for tool in tools if tool["name"] == "compute")
+    properties = compute_tool["inputSchema"]["properties"]
+    assert "recent_bars" not in properties
 
 
 def test_health(client: TestClient) -> None:
@@ -153,4 +157,16 @@ def test_compute_empty_indicators_is_error(client: TestClient) -> None:
         "compute",
         {"bars": _ramp_bars(_WARMUP_BARS), "indicators": {}},
     )
+    assert body["result"].get("isError") is True, body
+
+
+@pytest.mark.parametrize("legacy_field", ["tickVolume", "realVolume"])
+def test_compute_rejects_legacy_volume_fields(
+    client: TestClient,
+    legacy_field: str,
+) -> None:
+    bars = _ramp_bars(_WARMUP_BARS)
+    for bar in bars:
+        bar[legacy_field] = bar.pop("volume")
+    body = _call(client, "compute", {"bars": bars, "indicators": {"rsi": True}})
     assert body["result"].get("isError") is True, body

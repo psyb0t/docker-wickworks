@@ -5,11 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
-from _helpers import (  # type: ignore[import-not-found]
-    flat_bars,
-    post,
-)
+from _helpers import flat_bars, post  # type: ignore[import-not-found]
 
 
 def test_vwap_flat_equals_price() -> None:

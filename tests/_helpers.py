@@ -32,15 +32,13 @@ def flat_bars(n: int, price: float = 100.0) -> list[dict[str, Any]]:
             "high": price,
             "low": price,
             "close": price,
-            "tickVolume": 1000,
+            "volume": 1000,
         }
         for i in range(n)
     ]
 
 
-def monotone_up_bars(
-    n: int, start: float = 100.0, step: float = 1.0
-) -> list[dict[str, Any]]:
+def monotone_up_bars(n: int, start: float = 100.0, step: float = 1.0) -> list[dict[str, Any]]:
     """Strictly increasing close → rsi=100 at tail, all returns positive."""
     bars = []
     for i in range(n):
@@ -52,15 +50,13 @@ def monotone_up_bars(
                 "high": c + step / 4,
                 "low": c - step,
                 "close": c,
-                "tickVolume": 1000,
+                "volume": 1000,
             }
         )
     return bars
 
 
-def monotone_down_bars(
-    n: int, start: float = 200.0, step: float = 1.0
-) -> list[dict[str, Any]]:
+def monotone_down_bars(n: int, start: float = 200.0, step: float = 1.0) -> list[dict[str, Any]]:
     """Strictly decreasing close → rsi=0 at tail."""
     bars = []
     for i in range(n):
@@ -72,15 +68,13 @@ def monotone_down_bars(
                 "high": c + step,
                 "low": c - step / 4,
                 "close": c,
-                "tickVolume": 1000,
+                "volume": 1000,
             }
         )
     return bars
 
 
-def post(
-    bars: list[dict[str, Any]], indicators: dict[str, Any], **extra: Any
-) -> dict[str, Any]:
+def post(bars: list[dict[str, Any]], indicators: dict[str, Any], **extra: Any) -> dict[str, Any]:
     """POST / and return the parsed JSON, asserting 200."""
     body = {"bars": bars, "indicators": indicators, **extra}
     r = client.post("/", json=body)
@@ -100,7 +94,7 @@ def bars_to_df(bars: list[dict[str, Any]]) -> pd.DataFrame:
             "high": [b["high"] for b in bars],
             "low": [b["low"] for b in bars],
             "close": [b["close"] for b in bars],
-            "volume": [b.get("tickVolume", b.get("realVolume", 0)) for b in bars],
+            "volume": [b.get("volume", b.get("legacyRealVolume", 0)) for b in bars],
         }
     )
 
@@ -156,9 +150,7 @@ def ref_rsi(close: pd.Series, length: int = 14) -> pd.Series:
     return 100 - 100 / (1 + rs)
 
 
-def ref_true_range(
-    high: pd.Series, low: pd.Series, close: pd.Series
-) -> pd.Series:
+def ref_true_range(high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
     prev_close = close.shift(1)
     return pd.concat(
         [(high - low), (high - prev_close).abs(), (low - prev_close).abs()],
@@ -166,9 +158,7 @@ def ref_true_range(
     ).max(axis=1)
 
 
-def ref_atr(
-    high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14
-) -> pd.Series:
+def ref_atr(high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14) -> pd.Series:
     return ref_wilder(ref_true_range(high, low, close), length)
 
 
@@ -181,9 +171,7 @@ def ref_macd(
     return {"macd": macd, "signal": sig, "hist": hist}
 
 
-def ref_bbands(
-    close: pd.Series, length: int = 20, std: float = 2.0
-) -> dict[str, pd.Series]:
+def ref_bbands(close: pd.Series, length: int = 20, std: float = 2.0) -> dict[str, pd.Series]:
     """pandas_ta BBands uses ddof=1 (sample stddev)."""
     middle = close.rolling(length).mean()
     sd = close.rolling(length).std(ddof=1)
@@ -194,9 +182,7 @@ def ref_bbands(
     }
 
 
-def ref_donchian(
-    high: pd.Series, low: pd.Series, length: int = 20
-) -> dict[str, pd.Series]:
+def ref_donchian(high: pd.Series, low: pd.Series, length: int = 20) -> dict[str, pd.Series]:
     """pandas_ta donchian: rolling max/min over HIGH/LOW, including current bar."""
     upper = high.rolling(length).max()
     lower = low.rolling(length).min()
@@ -224,9 +210,7 @@ def ref_obv(close: pd.Series, volume: pd.Series) -> pd.Series:
     return (direction * volume).cumsum()
 
 
-def ref_stoch_basic(
-    high: pd.Series, low: pd.Series, close: pd.Series, k: int = 14
-) -> pd.Series:
+def ref_stoch_basic(high: pd.Series, low: pd.Series, close: pd.Series, k: int = 14) -> pd.Series:
     """Raw %K (no smoothing): 100 * (close - min_low) / (max_high - min_low)."""
     ll = low.rolling(k).min()
     hh = high.rolling(k).max()
@@ -248,9 +232,7 @@ def ref_stoch(
     return {"k": smoothed_k, "d": d_line}
 
 
-def ref_aroon(
-    high: pd.Series, low: pd.Series, length: int = 14
-) -> dict[str, pd.Series]:
+def ref_aroon(high: pd.Series, low: pd.Series, length: int = 14) -> dict[str, pd.Series]:
     """Aroon up/down: 100 * (length - bars_since_extreme) / length.
 
     pandas_ta uses window of (length+1) and looks back including the current
@@ -272,9 +254,7 @@ def ref_cci(
     """Patched CCI (matches wickworks' fixed implementation)."""
     tp = (high + low + close) / 3.0
     mean = tp.rolling(length).mean()
-    mad = tp.rolling(length).apply(
-        lambda x: np.fabs(x - x.mean()).mean(), raw=True
-    )
+    mad = tp.rolling(length).apply(lambda x: np.fabs(x - x.mean()).mean(), raw=True)
     return (tp - mean) / (c * mad)
 
 
@@ -298,10 +278,9 @@ def assert_last_bar_matches(
     actual = response_series[-1]
     expected_val = expected.iloc[-1]
     assert actual is not None, "response tail is None — wickworks returned NaN"
-    assert not pd.isna(expected_val), (
-        "reference tail is NaN — fixture too short or formula warmup not met"
-    )
+    assert not pd.isna(
+        expected_val
+    ), "reference tail is NaN — fixture too short or formula warmup not met"
     assert abs(actual - expected_val) <= atol + rtol * abs(expected_val), (
-        f"mismatch: wickworks={actual} reference={expected_val} "
-        f"diff={actual - expected_val}"
+        f"mismatch: wickworks={actual} reference={expected_val} " f"diff={actual - expected_val}"
     )

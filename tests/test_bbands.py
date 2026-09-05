@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import (  # type: ignore[import-not-found]
     assert_last_bar_matches,
     bars_to_df,
@@ -20,9 +19,7 @@ from _helpers import (  # type: ignore[import-not-found]
 def test_bbands_middle_equals_sma() -> None:
     bars = monotone_up_bars(200, start=100.0, step=0.7)
     out = post(bars, {"bbands": True, "sma20": {"type": "sma", "length": 20}})
-    assert out["bbands"]["middle"][-1] == pytest.approx(
-        out["sma20"][-1], rel=1e-9, abs=1e-9
-    )
+    assert out["bbands"]["middle"][-1] == pytest.approx(out["sma20"][-1], rel=1e-9, abs=1e-9)
 
 
 def test_bbands_symmetric_around_middle() -> None:

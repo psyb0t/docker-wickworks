@@ -3,11 +3,19 @@ SMC (Smart Money Concepts) analysis. Takes a DataFrame with all indicator
 columns added and returns a structured analysis dict for a single timeframe.
 """
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
-from .common import find_col, safe_float
+from .common import find_col
+from .common import safe_float
 from .common import safe_float as _safe
+
+_FVG_CONFIRMATION_BARS = 1
+_SMC_SWING_CONFIRMATION_BARS = 15
+_SR_EVIDENCE_BARS = 500
+_SR_TOUCH_SEPARATION_BARS = 5
 
 
 def _count_sr_touches(
@@ -15,26 +23,22 @@ def _count_sr_touches(
     lows: np.ndarray,
     level: float,
     atr: float,
-    window_pct: float = 0.05,
+    separation_bars: int = _SR_TOUCH_SEPARATION_BARS,
 ) -> int:
-    n = len(highs)
     tolerance = atr * 0.5
-    window = max(3, int(n * window_pct))
     touches = 0
-    last_touch_idx = -window - 1
-    for i in range(n):
+    last_touch_idx = -separation_bars - 1
+    for i in range(len(highs)):
         if abs(highs[i] - level) > tolerance and abs(lows[i] - level) > tolerance:
             continue
-        if i - last_touch_idx <= window:
+        if i - last_touch_idx <= separation_bars:
             continue
         touches += 1
         last_touch_idx = i
     return touches
 
 
-def get_sr_levels(
-    df: pd.DataFrame, price: float, atr: float, max_levels: int = 3
-) -> list[dict]:
+def get_sr_levels(df: pd.DataFrame, price: float, atr: float, max_levels: int = 3) -> list[dict]:
     if not atr or atr <= 0 or len(df) < 50:
         return []
 
@@ -42,12 +46,13 @@ def get_sr_levels(
     if "sw7_hl" not in df.columns or "sw7_level" not in df.columns:
         return []
 
-    sw7_type = df["sw7_hl"]
-    sw7_level = df["sw7_level"]
+    evidence = df.tail(_SR_EVIDENCE_BARS)
+    sw7_type = evidence["sw7_hl"]
+    sw7_level = evidence["sw7_level"]
 
     # Pre-extract numpy arrays once — avoids df.iloc per touch-count call
-    highs = df["high"].to_numpy(dtype=float)
-    lows = df["low"].to_numpy(dtype=float)
+    highs = evidence["high"].to_numpy(dtype=float)
+    lows = evidence["low"].to_numpy(dtype=float)
 
     threshold = atr * 3.0
     placed: list[float] = []
@@ -139,15 +144,15 @@ def analyze(df: pd.DataFrame, timeframe: str) -> dict:
     stochd_col = find_col(df, "STOCHd_")
 
     atr_val = latest.get("atr")
-    atr = (
-        float(atr_val) if atr_val is not None and not np.isnan(float(atr_val)) else 0.0
-    )
+    atr = float(atr_val) if atr_val is not None and not np.isnan(float(atr_val)) else 0.0
 
+    observed_as_of = int(latest["time"])
     result = {
         "timeframe": timeframe,
         "candles": len(df),
         "price": price,
         "time": int(latest["time"]),
+        "observed_as_of": observed_as_of,
         "levels": {
             "ema_21": _safe(latest.get("ema_21")),
             "sma_50": _safe(latest.get("sma_50")),
@@ -180,10 +185,10 @@ def analyze(df: pd.DataFrame, timeframe: str) -> dict:
         },
         "position": _price_position(latest, price),
         "slope": _ma_slopes(df),
-        "order_blocks": _order_blocks(df, price),
-        "fvgs": _fvgs(df, price),
-        "bos_choch": _bos_choch(df),
-        "swing_levels": _swing_levels(df),
+        "order_blocks": _order_blocks(df, price, observed_as_of),
+        "fvgs": _fvgs(df, price, observed_as_of),
+        "bos_choch": _bos_choch(df, observed_as_of),
+        "swing_levels": _swing_levels(df, observed_as_of),
         "sr_levels": get_sr_levels(df, price, atr),
         "recent_range": {
             "high": safe_float(df["high"].tail(20).max(), decimals=None),
@@ -250,7 +255,20 @@ def _price_position(latest: pd.Series, price: float) -> dict:
     return position
 
 
-def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
+def _time_at(df: pd.DataFrame, raw_index: Any) -> int | None:
+    if not pd.notna(raw_index):
+        return None
+    index = int(raw_index)
+    if index < 0 or index >= len(df):
+        return None
+    return int(df.iloc[index]["time"])
+
+
+def _order_blocks(
+    df: pd.DataFrame,
+    price: float,
+    observed_as_of: int,
+) -> list[dict]:
     # Emit ALL OBs the smc lib detected (not just the unmitigated ones).
     # Each row carries three independent flags so downstream consumers can
     # pick their freshness criterion:
@@ -272,7 +290,15 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
     # haven't been wicked all the way through — confusing on charts where
     # price has clearly already tagged the level. Let the consumer decide.
     mask = df["ob_type"] != 0
-    cols = ["ob_type", "ob_top", "ob_bottom", "ob_mitigated", "time"]
+    cols = [
+        "ob_type",
+        "ob_top",
+        "ob_bottom",
+        "ob_mitigated",
+        "time",
+    ]
+    if "ob_confirmed_idx" in df.columns:
+        cols.append("ob_confirmed_idx")
     if "ob_mitigated_close" in df.columns:
         cols.append("ob_mitigated_close")
     rows = df[mask][cols].copy()
@@ -296,9 +322,7 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
         else:
             dist = round((bottom - price) / price * 100, 3)
         mit_wick = bool(pd.notna(row["ob_mitigated"]))
-        mit_close = bool(
-            has_close_col and pd.notna(row["ob_mitigated_close"])
-        )
+        mit_close = bool(has_close_col and pd.notna(row["ob_mitigated_close"]))
 
         # Compute the raw list of touch events FIRST (no settle filter):
         # each entry is a 1-based offset from ob_idx where a contiguous
@@ -320,17 +344,13 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
             if inside.any():
                 inside_i = inside.astype(np.int8)
                 edges = np.diff(inside_i, prepend=np.int8(0))
-                touch_events = [
-                    int(i + 1) for i in np.nonzero(edges > 0)[0]
-                ]
+                touch_events = [int(i + 1) for i in np.nonzero(edges > 0)[0]]
 
         # Default-filtered count: drop events inside the settle window
         # (offsets <= _OB_TOUCH_SETTLE_BARS). Quanthex reads this
         # directly; the FE recomputes from touch_events using its own
         # cog-set settle value.
-        touch_count = sum(
-            1 for off in touch_events if off > _OB_TOUCH_SETTLE_BARS
-        )
+        touch_count = sum(1 for off in touch_events if off > _OB_TOUCH_SETTLE_BARS)
 
         obs.append(
             {
@@ -339,6 +359,17 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
                 "bottom": bottom,
                 "candle_idx": ob_idx,
                 "time": int(row["time"]),
+                "origin_at": int(row["time"]),
+                "confirmed_at": _time_at(
+                    df,
+                    row.get("ob_confirmed_idx", ob_idx),
+                ),
+                "observed_as_of": observed_as_of,
+                "mitigated_wick_at": _time_at(df, row["ob_mitigated"]),
+                "mitigated_close_at": _time_at(
+                    df,
+                    row.get("ob_mitigated_close"),
+                ),
                 "distance_pct": dist,
                 "mitigated_wick": mit_wick,
                 "mitigated_close": mit_close,
@@ -353,7 +384,7 @@ def _order_blocks(df: pd.DataFrame, price: float) -> list[dict]:
     return obs[:40]
 
 
-def _fvgs(df: pd.DataFrame, price: float) -> list[dict]:
+def _fvgs(df: pd.DataFrame, price: float, observed_as_of: int) -> list[dict]:
     # Vectorized: filter rows with fvg_type != 0 and fvg_mitigated is NaN
     mask = (df["fvg_type"] != 0) & df["fvg_mitigated"].isna()
     rows = df[mask][["fvg_type", "fvg_top", "fvg_bottom", "time"]].copy()
@@ -364,13 +395,17 @@ def _fvgs(df: pd.DataFrame, price: float) -> list[dict]:
         top = float(row["fvg_top"])
         bottom = float(row["fvg_bottom"])
         mid = (top + bottom) / 2
+        origin_index = int(row["_idx"])
         fvgs.append(
             {
                 "type": "bullish" if row["fvg_type"] == 1 else "bearish",
                 "top": top,
                 "bottom": bottom,
-                "candle_idx": int(row["_idx"]),
+                "candle_idx": origin_index,
                 "time": int(row["time"]),
+                "origin_at": int(row["time"]),
+                "confirmed_at": _time_at(df, origin_index + _FVG_CONFIRMATION_BARS),
+                "observed_as_of": observed_as_of,
                 "distance_pct": round(abs(price - mid) / price * 100, 3),
             }
         )
@@ -378,18 +413,22 @@ def _fvgs(df: pd.DataFrame, price: float) -> list[dict]:
     return fvgs[:15]
 
 
-def _bos_choch(df: pd.DataFrame) -> list[dict]:
+def _bos_choch(df: pd.DataFrame, observed_as_of: int) -> list[dict]:
     tail = df.iloc[max(0, len(df) - 50) :]
     mask = (tail["bos"] != 0) | (tail["choch"] != 0)
-    rows = tail[mask][["bos", "choch", "bos_choch_level", "time"]]
+    cols = ["bos", "choch", "bos_choch_level", "time"]
+    if "bos_choch_broken_idx" in df.columns:
+        cols.append("bos_choch_broken_idx")
+    rows = tail[mask][cols].copy()
+    rows["_idx"] = np.where(mask)[0] + max(0, len(df) - 50)
 
     events: list[dict] = []
-    for bos_val, choch_val, level, t in zip(
-        rows["bos"].to_numpy(),
-        rows["choch"].to_numpy(),
-        rows["bos_choch_level"].to_numpy(),
-        rows["time"].to_numpy(),
-    ):
+    for _, row in rows.iterrows():
+        bos_val = row["bos"]
+        choch_val = row["choch"]
+        level = row["bos_choch_level"]
+        t = row["time"]
+        broken_index = row.get("bos_choch_broken_idx", row["_idx"])
         if bos_val != 0:
             events.append(
                 {
@@ -397,6 +436,9 @@ def _bos_choch(df: pd.DataFrame) -> list[dict]:
                     "direction": "bullish" if bos_val == 1 else "bearish",
                     "level": _safe(level),
                     "time": int(t),
+                    "origin_at": int(t),
+                    "confirmed_at": _time_at(df, broken_index),
+                    "observed_as_of": observed_as_of,
                 }
             )
         if choch_val != 0:
@@ -406,26 +448,36 @@ def _bos_choch(df: pd.DataFrame) -> list[dict]:
                     "direction": "bullish" if choch_val == 1 else "bearish",
                     "level": _safe(level),
                     "time": int(t),
+                    "origin_at": int(t),
+                    "confirmed_at": _time_at(df, broken_index),
+                    "observed_as_of": observed_as_of,
                 }
             )
     return events[-10:]
 
 
-def _swing_levels(df: pd.DataFrame) -> list[dict]:
+def _swing_levels(df: pd.DataFrame, observed_as_of: int) -> list[dict]:
     tail = df.iloc[max(0, len(df) - 50) :]
     mask = tail["swing_type"] != 0
     rows = tail[mask][["swing_type", "swing_level", "time"]]
 
-    return [
-        {
-            "type": "high" if st == 1 else "low",
-            "level": safe_float(lvl, decimals=None),
-            "time": int(t),
-        }
-        for st, lvl, t in zip(
-            rows["swing_type"].to_numpy(),
-            rows["swing_level"].to_numpy(),
-            rows["time"].to_numpy(),
+    levels = []
+    for index, row in rows.iterrows():
+        level = safe_float(row["swing_level"], decimals=None)
+        if level is None:
+            continue
+        origin_index = int(df.index.get_loc(index))
+        levels.append(
+            {
+                "type": "high" if row["swing_type"] == 1 else "low",
+                "level": level,
+                "time": int(row["time"]),
+                "origin_at": int(row["time"]),
+                "confirmed_at": _time_at(
+                    df,
+                    origin_index + _SMC_SWING_CONFIRMATION_BARS,
+                ),
+                "observed_as_of": observed_as_of,
+            }
         )
-        if safe_float(lvl, decimals=None) is not None
-    ][-10:]
+    return levels[-10:]

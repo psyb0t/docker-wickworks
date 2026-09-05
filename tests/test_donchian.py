@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import (  # type: ignore[import-not-found]
     assert_last_bar_matches,
     bars_to_df,
@@ -32,9 +31,7 @@ def test_donchian_matches_closed_form_on_real_data(
     bars = eurusd_h1_fixture["bars"]
     df = bars_to_df(bars)
     expected = ref_donchian(df["high"], df["low"], length=length)
-    out = post(
-        bars, {"donchian": {"type": "donchian", "length": length}}
-    )
+    out = post(bars, {"donchian": {"type": "donchian", "length": length}})
     assert_last_bar_matches(out["donchian"]["upper"], expected["upper"])
     assert_last_bar_matches(out["donchian"]["lower"], expected["lower"])
     assert_last_bar_matches(out["donchian"]["middle"], expected["middle"])

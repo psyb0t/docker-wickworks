@@ -12,17 +12,11 @@ Coverage rules:
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
-from wickworks.metadata import (
-    INDICATOR_METADATA,
-    all_metadata,
-    lookup,
-)
+from wickworks.metadata import INDICATOR_METADATA, all_metadata, lookup
 from wickworks.registry import INDICATORS
 from wickworks.server import app
-
 
 _REQUIRED_FIELDS = {
     "label",
@@ -42,6 +36,18 @@ _KNOWN_CATEGORIES = {
     "range",
     "summary",
     "structure",
+}
+
+_MISLEADING_MARKET_CLAIMS = {
+    "institutional orders likely originated",
+    "expected support",
+    "expected resistance",
+    "more touches = stronger",
+    "older = stronger",
+    "reaction expected",
+    "price hunts before reversing",
+    "bullish breakout confirmation",
+    "bearish breakdown confirmation",
 }
 
 
@@ -78,6 +84,14 @@ class TestCoverage:
             if cat not in _KNOWN_CATEGORIES:
                 bad.append(f"{path}: category={cat!r}")
         assert bad == [], "\n".join(bad)
+
+    def test_metadata_does_not_present_market_interpretations_as_facts(self) -> None:
+        text = "\n".join(
+            entry["description"] + " " + entry["interpretation"]
+            for entry in INDICATOR_METADATA.values()
+        ).lower()
+        for claim in _MISLEADING_MARKET_CLAIMS:
+            assert claim not in text
 
 
 class TestLookup:

@@ -1,0 +1,10 @@
+title = "wickworks secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "scanner-canary"
+description = "Detect the repository's clearly fake scanner canary"
+regex = '''GITLEAKS-CANARY-DO-NOT-USE'''
+keywords = ["GITLEAKS-CANARY"]

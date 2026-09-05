@@ -29,7 +29,7 @@ def _gen_bars(n: int, start_time: int = 1_700_000_000, step: int = 3600) -> list
                 "high": round(h, 5),
                 "low": round(lo, 5),
                 "close": round(c, 5),
-                "tickVolume": 1000 + (i % 50),
+                "volume": 1000 + (i % 50),
             }
         )
         price = c

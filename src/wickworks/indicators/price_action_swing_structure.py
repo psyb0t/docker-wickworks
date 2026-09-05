@@ -14,47 +14,6 @@ Columns added:
 import numpy as np
 import pandas as pd
 
-from ._helpers import vol_col
-
-
-def add_causal_swings(df: pd.DataFrame, n: int = 7) -> pd.DataFrame:
-    """Add causal swing detection using backward-looking rolling window.
-
-    Swing high at bar j if high[j] == max(high[j-n+1:j+1]) — fully causal.
-    Swing low at bar j if low[j] == min(low[j-n+1:j+1]) — fully causal.
-    No future bars needed, _SW7_LAG can be 0.
-
-    Columns added:
-        csw_hl    — 1 (swing high), -1 (swing low), 0 (neither)
-        csw_level — price level at each swing, NaN elsewhere
-    """
-    length = len(df)
-    if length < n:
-        df["csw_hl"] = 0
-        df["csw_level"] = [float("nan")] * length
-        return df
-
-    hi = df["high"].values
-    lo = df["low"].values
-
-    csw_hl = np.zeros(length, dtype=int)
-    csw_level = np.full(length, float("nan"))
-
-    for j in range(n - 1, length):
-        start = j - n + 1
-        win_hi = hi[start : j + 1]
-        win_lo = lo[start : j + 1]
-        if hi[j] == win_hi.max():
-            csw_hl[j] = 1
-            csw_level[j] = hi[j]
-        elif lo[j] == win_lo.min():
-            csw_hl[j] = -1
-            csw_level[j] = lo[j]
-
-    df["csw_hl"] = csw_hl
-    df["csw_level"] = csw_level
-    return df
-
 
 def add(df: pd.DataFrame, swing_length: int = 7) -> pd.DataFrame:
     """Classify swing highs/lows as HH/LH and HL/LL."""
@@ -70,11 +29,12 @@ def add(df: pd.DataFrame, swing_length: int = 7) -> pd.DataFrame:
         df["sw7_low_struct"] = nan_col
         return df
 
-    vol = vol_col(df)
     ohlc = df[["open", "high", "low", "close"]].copy()
-    ohlc["volume"] = df[vol].values
+    ohlc["volume"] = df["volume"].values
 
     sw = _smc.swing_highs_lows(ohlc, swing_length=swing_length)
+    sw.iloc[:swing_length] = np.nan
+    sw.iloc[-swing_length:] = np.nan
     sw_hl = sw["HighLow"].fillna(0).astype(int)
     sw_level = sw["Level"]
 

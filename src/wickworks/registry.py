@@ -12,11 +12,12 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 import pandas_ta as ta
-
 from smartmoneyconcepts import smc as smc_lib
 
 from . import smc as smc_module
 from .common import parse_duration, safe_float
+from .constants import PREVIOUS_PERIOD_FREQUENCIES
+from .indicators import add_all
 
 
 def _col(out: pd.DataFrame, prefix: str, fallback_idx: int = 0) -> pd.Series:
@@ -25,10 +26,6 @@ def _col(out: pd.DataFrame, prefix: str, fallback_idx: int = 0) -> pd.Series:
         if c.startswith(prefix):
             return out[c]
     return out.iloc[:, fallback_idx]
-
-
-def _vol_col(df: pd.DataFrame) -> str:
-    return "tick_volume" if "tick_volume" in df.columns else "volume"
 
 
 def _series(s: pd.Series | None) -> list[float | None]:
@@ -55,7 +52,8 @@ class Context:
 
     def analysis(self) -> dict[str, Any]:
         if self._analysis is None:
-            self._analysis = smc_module.analyze(self.df, self.timeframe)
+            enriched = add_all(self.df.copy())
+            self._analysis = smc_module.analyze(enriched, self.timeframe)
         return self._analysis
 
 
@@ -86,16 +84,14 @@ def _atr(ctx: Context, p: dict[str, Any]) -> list[float | None]:
 
 def _mfi(ctx: Context, p: dict[str, Any]) -> list[float | None]:
     length = int(p.get("length", 14))
-    vol_col = "tick_volume" if "tick_volume" in ctx.df.columns else "volume"
     return _series(
-        ta.mfi(ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df[vol_col], length=length)
+        ta.mfi(ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df["volume"], length=length)
     )
 
 
 def _vwap(ctx: Context, p: dict[str, Any]) -> list[float | None]:
     anchor = str(p.get("anchor", "D"))
     offset_sec = parse_duration(p.get("sessionOffset", p.get("session_offset", 0)))
-    vol_col = "tick_volume" if "tick_volume" in ctx.df.columns else "volume"
     # pandas_ta vwap groups by anchor on the DatetimeIndex. Shifting the index
     # by `sessionOffset` moves session boundaries away from UTC midnight.
     df = ctx.df
@@ -104,7 +100,7 @@ def _vwap(ctx: Context, p: dict[str, Any]) -> list[float | None]:
         s = df.set_index(idx, drop=False)
     else:
         s = df
-    return _series(ta.vwap(s["high"], s["low"], s["close"], s[vol_col], anchor=anchor))
+    return _series(ta.vwap(s["high"], s["low"], s["close"], s["volume"], anchor=anchor))
 
 
 def _macd(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
@@ -118,7 +114,11 @@ def _macd(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
     macd_col = next((c for c in cols if c.startswith("MACD_")), cols[0])
     sig_col = next((c for c in cols if c.startswith("MACDs_")), cols[-1])
     hist_col = next((c for c in cols if c.startswith("MACDh_")), cols[1])
-    return {"macd": _series(out[macd_col]), "signal": _series(out[sig_col]), "hist": _series(out[hist_col])}
+    return {
+        "macd": _series(out[macd_col]),
+        "signal": _series(out[sig_col]),
+        "hist": _series(out[hist_col]),
+    }
 
 
 def _stoch(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
@@ -143,20 +143,28 @@ def _adx(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
     adx_col = next((c for c in cols if c.startswith("ADX_")), cols[0])
     dmp_col = next((c for c in cols if c.startswith("DMP_")), cols[1])
     dmn_col = next((c for c in cols if c.startswith("DMN_")), cols[2])
-    return {"adx": _series(out[adx_col]), "diPlus": _series(out[dmp_col]), "diMinus": _series(out[dmn_col])}
+    return {
+        "adx": _series(out[adx_col]),
+        "diPlus": _series(out[dmp_col]),
+        "diMinus": _series(out[dmn_col]),
+    }
 
 
 def _bbands(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
     length = int(p.get("length", 20))
     std = float(p.get("std", 2.0))
-    out = ta.bbands(ctx.df["close"], length=length, std=std)
+    out = ta.bbands(ctx.df["close"], length=length, std=std)  # type: ignore[arg-type]
     if out is None or out.empty:
         return {"upper": [], "middle": [], "lower": []}
     cols = list(out.columns)
     lower = next((c for c in cols if c.startswith("BBL_")), cols[0])
     middle = next((c for c in cols if c.startswith("BBM_")), cols[1])
     upper = next((c for c in cols if c.startswith("BBU_")), cols[2])
-    return {"upper": _series(out[upper]), "middle": _series(out[middle]), "lower": _series(out[lower])}
+    return {
+        "upper": _series(out[upper]),
+        "middle": _series(out[middle]),
+        "lower": _series(out[lower]),
+    }
 
 
 def _donchian(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
@@ -168,7 +176,11 @@ def _donchian(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
     lower = next((c for c in cols if c.startswith("DCL_")), cols[0])
     middle = next((c for c in cols if c.startswith("DCM_")), cols[1])
     upper = next((c for c in cols if c.startswith("DCU_")), cols[2])
-    return {"upper": _series(out[upper]), "middle": _series(out[middle]), "lower": _series(out[lower])}
+    return {
+        "upper": _series(out[upper]),
+        "middle": _series(out[middle]),
+        "lower": _series(out[lower]),
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -211,7 +223,9 @@ def _uo(ctx: Context, p: dict[str, Any]) -> list[float | None]:
     fast = int(p.get("fast", 7))
     medium = int(p.get("medium", 14))
     slow = int(p.get("slow", 28))
-    return _series(ta.uo(ctx.df["high"], ctx.df["low"], ctx.df["close"], fast=fast, medium=medium, slow=slow))
+    return _series(
+        ta.uo(ctx.df["high"], ctx.df["low"], ctx.df["close"], fast=fast, medium=medium, slow=slow)
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -220,17 +234,17 @@ def _uo(ctx: Context, p: dict[str, Any]) -> list[float | None]:
 
 
 def _obv(ctx: Context, _p: dict[str, Any]) -> list[float | None]:
-    return _series(ta.obv(ctx.df["close"], ctx.df[_vol_col(ctx.df)]))
+    return _series(ta.obv(ctx.df["close"], ctx.df["volume"]))
 
 
 def _ad(ctx: Context, _p: dict[str, Any]) -> list[float | None]:
-    return _series(ta.ad(ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df[_vol_col(ctx.df)]))
+    return _series(ta.ad(ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df["volume"]))
 
 
 def _cmf(ctx: Context, p: dict[str, Any]) -> list[float | None]:
     length = int(p.get("length", 20))
     return _series(
-        ta.cmf(ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df[_vol_col(ctx.df)], length=length)
+        ta.cmf(ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df["volume"], length=length)
     )
 
 
@@ -238,13 +252,15 @@ def _adosc(ctx: Context, p: dict[str, Any]) -> list[float | None]:
     fast = int(p.get("fast", 3))
     slow = int(p.get("slow", 10))
     return _series(
-        ta.adosc(ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df[_vol_col(ctx.df)], fast=fast, slow=slow)
+        ta.adosc(
+            ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df["volume"], fast=fast, slow=slow
+        )
     )
 
 
 def _vwma(ctx: Context, p: dict[str, Any]) -> list[float | None]:
     length = int(p.get("length", 10))
-    return _series(ta.vwma(ctx.df["close"], ctx.df[_vol_col(ctx.df)], length=length))
+    return _series(ta.vwma(ctx.df["close"], ctx.df["volume"], length=length))
 
 
 # -----------------------------------------------------------------------------
@@ -256,6 +272,7 @@ def _ma_factory(fn_name: str, default_length: int):
     def _impl(ctx: Context, p: dict[str, Any]) -> list[float | None]:
         length = int(p.get("length", default_length))
         return _series(getattr(ta, fn_name)(ctx.df["close"], length=length))
+
     _impl.__name__ = f"_{fn_name}"
     return _impl
 
@@ -285,7 +302,9 @@ _trima = _ma_factory("trima", 10)
 def _supertrend(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
     length = int(p.get("length", 7))
     multiplier = float(p.get("multiplier", 3.0))
-    out = ta.supertrend(ctx.df["high"], ctx.df["low"], ctx.df["close"], length=length, multiplier=multiplier)
+    out = ta.supertrend(
+        ctx.df["high"], ctx.df["low"], ctx.df["close"], length=length, multiplier=multiplier
+    )
     if out is None or out.empty:
         return {"value": [], "direction": [], "long": [], "short": []}
     return {
@@ -383,8 +402,13 @@ def _kvo(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
     slow = int(p.get("slow", 55))
     signal = int(p.get("signal", 13))
     out = ta.kvo(
-        ctx.df["high"], ctx.df["low"], ctx.df["close"], ctx.df[_vol_col(ctx.df)],
-        fast=fast, slow=slow, signal=signal,
+        ctx.df["high"],
+        ctx.df["low"],
+        ctx.df["close"],
+        ctx.df["volume"],
+        fast=fast,
+        slow=slow,
+        signal=signal,
     )
     if out is None or out.empty:
         return {"kvo": [], "signal": []}
@@ -399,8 +423,13 @@ def _chandelier_exit(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | 
     atr_length = int(p.get("atrLength", p.get("atr_length", 22)))
     mult = float(p.get("multiplier", 2.0))
     out = ta.chandelier_exit(
-        ctx.df["high"], ctx.df["low"], ctx.df["close"],
-        high_length=length, low_length=length, atr_length=atr_length, mult=mult,
+        ctx.df["high"],
+        ctx.df["low"],
+        ctx.df["close"],
+        high_length=length,
+        low_length=length,
+        atr_length=atr_length,
+        mult=mult,  # type: ignore[arg-type]
     )
     if out is None or out.empty:
         return {"long": [], "short": [], "direction": []}
@@ -454,8 +483,13 @@ def _squeeze(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
     bb_std = float(p.get("bbStd", p.get("bb_std", 2.0)))
     kc_scalar = float(p.get("kcScalar", p.get("kc_scalar", 1.5)))
     out = ta.squeeze(
-        ctx.df["high"], ctx.df["low"], ctx.df["close"],
-        bb_length=bb_length, bb_std=bb_std, kc_length=kc_length, kc_scalar=kc_scalar,
+        ctx.df["high"],
+        ctx.df["low"],
+        ctx.df["close"],
+        bb_length=bb_length,
+        bb_std=bb_std,
+        kc_length=kc_length,
+        kc_scalar=kc_scalar,
     )
     if out is None or out.empty:
         return {"value": [], "on": [], "off": [], "no": []}
@@ -472,7 +506,9 @@ def _squeeze(ctx: Context, p: dict[str, Any]) -> dict[str, list[float | None]]:
 # -----------------------------------------------------------------------------
 
 
-def _smc_events_from_col(out: pd.DataFrame, df: pd.DataFrame, label_col: str) -> list[dict[str, Any]]:
+def _smc_events_from_col(
+    out: pd.DataFrame, df: pd.DataFrame, label_col: str
+) -> list[dict[str, Any]]:
     """Project a smartmoneyconcepts DataFrame into a sparse event list.
 
     Rows where `label_col` is NaN are skipped. Each kept row contributes one
@@ -502,8 +538,6 @@ def _smc_events_from_col(out: pd.DataFrame, df: pd.DataFrame, label_col: str) ->
 def _smc_df(ctx: Context) -> pd.DataFrame:
     """smartmoneyconcepts expects a 'volume' column and a DatetimeIndex."""
     df = ctx.df.copy()
-    if "volume" not in df.columns:
-        df["volume"] = df["tick_volume"] if "tick_volume" in df.columns else 0
     if "datetime" in df.columns:
         df = df.set_index("datetime", drop=False)
     return df
@@ -520,8 +554,24 @@ def _liquidity(ctx: Context, p: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _previous_high_low(ctx: Context, p: dict[str, Any]) -> list[dict[str, Any]]:
     time_frame = str(p.get("timeFrame", p.get("time_frame", "1D")))
-    df = _smc_df(ctx)
-    out = smc_lib.previous_high_low(df, time_frame=time_frame)
+    period_frequency = PREVIOUS_PERIOD_FREQUENCIES[time_frame]
+    datetimes = pd.to_datetime(ctx.df["time"], unit="s", utc=True).dt.tz_localize(None)
+    periods = datetimes.dt.to_period(period_frequency)
+    grouped = ctx.df.assign(_period=periods).groupby("_period", sort=True)
+    period_highs = grouped["high"].max().shift(1)
+    period_lows = grouped["low"].min().shift(1)
+    previous_high = periods.map(period_highs)
+    previous_low = periods.map(period_lows)
+    broken_high = (ctx.df["high"] > previous_high).groupby(periods).cummax()
+    broken_low = (ctx.df["low"] < previous_low).groupby(periods).cummax()
+    out = pd.DataFrame(
+        {
+            "PreviousHigh": previous_high,
+            "PreviousLow": previous_low,
+            "BrokenHigh": broken_high.astype(int),
+            "BrokenLow": broken_low.astype(int),
+        }
+    )
     return _smc_events_from_col(out, ctx.df, "PreviousHigh")
 
 
@@ -677,9 +727,3 @@ INDICATORS: dict[str, Callable[[Context, dict[str, Any]], Any]] = {
     "position": _position,
     "slope": _slope,
 }
-
-
-# Signal-like outputs get isRecent tagging + sha256 ids. Wickworks emits
-# primitives only — no signals — so this is empty by design. Kept as a
-# typed empty mapping so callers can iterate without a None check.
-RECENT_TAGGABLE: dict[str, str] = {}

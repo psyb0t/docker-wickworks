@@ -11,7 +11,6 @@ from typing import Any
 
 from _helpers import post  # type: ignore[import-not-found]
 
-
 _FULL_INDICATORS: dict[str, Any] = {
     "rsi": True,
     "ema21": {"type": "ema", "length": 21},

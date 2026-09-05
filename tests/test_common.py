@@ -85,10 +85,10 @@ def test_safe_float_default_rounds_to_six_decimals(value, expected: float) -> No
 @pytest.mark.parametrize(
     "value",
     [
-        1e-8,     # PEPE / SHIB territory
-        1e-12,    # micro-cap altcoins
-        1e-15,    # absurd-but-real new launches
-        0.5,      # normal range still works
+        1e-8,  # PEPE / SHIB territory
+        1e-12,  # micro-cap altcoins
+        1e-15,  # absurd-but-real new launches
+        0.5,  # normal range still works
         12345.6789012345,  # tail digits preserved
     ],
     ids=["1e-8", "1e-12", "1e-15", "half", "long_tail"],

@@ -10,18 +10,14 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import post  # type: ignore[import-not-found]
-
 
 # Causal series indicators that should be append-stable.
 _CAUSAL_SERIES = ["rsi", "atr", "ema21", "sma20", "willr", "cci", "roc", "mom"]
 
 
 @pytest.mark.parametrize("indicator", _CAUSAL_SERIES)
-def test_series_is_append_stable(
-    eurusd_h1_fixture: dict[str, Any], indicator: str
-) -> None:
+def test_series_is_append_stable(eurusd_h1_fixture: dict[str, Any], indicator: str) -> None:
     """Value at bar i computed on bars[:N] must equal value at bar i on bars[:N+k]."""
     bars = eurusd_h1_fixture["bars"]
     n = len(bars)
@@ -46,9 +42,9 @@ def test_series_is_append_stable(
     assert full[cut - 1] is not None, f"{indicator} bar {cut - 1} of full run is None"
 
     a, b = truncated[-1], full[cut - 1]
-    assert abs(a - b) <= 1e-6 + 1e-5 * abs(b), (
-        f"{indicator} append-leak: truncated={a} full[{cut - 1}]={b} diff={a - b}"
-    )
+    assert abs(a - b) <= 1e-6 + 1e-5 * abs(
+        b
+    ), f"{indicator} append-leak: truncated={a} full[{cut - 1}]={b} diff={a - b}"
 
 
 def test_macd_line_is_append_stable(eurusd_h1_fixture: dict[str, Any]) -> None:

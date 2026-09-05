@@ -4,6 +4,33 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.7.0 (2026-09-05)
+
+Input validation and point-in-time correctness. This release contains a
+breaking request-schema change.
+
+- Replaced the vendor-specific `tickVolume` and `realVolume` inputs with one
+  required `volume` field. Callers choose the activity or volume series before
+  sending bars. Legacy volume fields are rejected instead of being silently
+  preferred, ignored, or replaced with zero.
+- Bars now require finite positive OHLC values, valid candle geometry, a
+  finite non-negative volume, and strictly increasing unique UTC timestamps.
+- Indicator specifications now reject unknown, malformed, and inconsistent
+  parameters before calculation.
+- Removed the inert `recentBars` request field from REST and MCP.
+- Structural objects now expose origin, confirmation, observation, and
+  mitigation timestamps where applicable. This separates where a pattern
+  formed from when it became knowable.
+- Previous-period high and low now use the immediately completed fixed UTC
+  bucket. Weeks run Monday through Sunday. The nested aggregation bucket is
+  independent of the top-level chart interval label.
+- Session output is documented and validated as fixed UTC clock windows, not
+  an exchange calendar or daylight-saving-aware schedule.
+- Support and resistance now use a bounded 500-bar evidence window and require
+  distinct touches to be at least five bars apart.
+- Updated the REST schema, MCP contract, metadata catalog, agent skill, and
+  README to describe the actual calculations and their limitations.
+
 ## v0.6.8 — 2026-08-01
 
 Infrastructure only. No code in this repo changed — every commit since v0.6.7 touches `.github/workflows/`.

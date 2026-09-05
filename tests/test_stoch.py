@@ -10,7 +10,6 @@ import math
 from typing import Any
 
 import pytest
-
 from _helpers import (  # type: ignore[import-not-found]
     assert_last_bar_matches,
     bars_to_df,
@@ -44,12 +43,8 @@ def test_stoch_matches_closed_form_on_real_data(
 ) -> None:
     bars = eurusd_h1_fixture["bars"]
     df = bars_to_df(bars)
-    expected = ref_stoch(
-        df["high"], df["low"], df["close"], k=k, d=d, smooth_k=smooth_k
-    )
-    out = post(
-        bars, {"stoch": {"type": "stoch", "k": k, "d": d, "smoothK": smooth_k}}
-    )
+    expected = ref_stoch(df["high"], df["low"], df["close"], k=k, d=d, smooth_k=smooth_k)
+    out = post(bars, {"stoch": {"type": "stoch", "k": k, "d": d, "smoothK": smooth_k}})
     assert_last_bar_matches(out["stoch"]["k"], expected["k"])
     assert_last_bar_matches(out["stoch"]["d"], expected["d"])
 
@@ -67,7 +62,7 @@ def test_stochrsi_keys_mapped() -> None:
                 "high": c + 0.5,
                 "low": c - 0.5,
                 "close": c,
-                "tickVolume": 1000,
+                "volume": 1000,
             }
         )
     out = post(bars, {"stochrsi": True})

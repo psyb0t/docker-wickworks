@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import (  # type: ignore[import-not-found]
     assert_last_bar_matches,
     bars_to_df,

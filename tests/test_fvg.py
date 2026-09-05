@@ -19,7 +19,7 @@ def test_fvg_detects_bullish_gap() -> None:
                 "high": 100.5,
                 "low": 99.5,
                 "close": 100.0,
-                "tickVolume": 1000,
+                "volume": 1000,
             }
         )
     bars.append(
@@ -29,7 +29,7 @@ def test_fvg_detects_bullish_gap() -> None:
             "high": 101.0,
             "low": 100.0,
             "close": 101.0,
-            "tickVolume": 1000,
+            "volume": 1000,
         }
     )
     bars.append(
@@ -39,7 +39,7 @@ def test_fvg_detects_bullish_gap() -> None:
             "high": 106.0,
             "low": 101.0,
             "close": 106.0,
-            "tickVolume": 5000,
+            "volume": 5000,
         }
     )
     bars.append(
@@ -49,7 +49,7 @@ def test_fvg_detects_bullish_gap() -> None:
             "high": 107.0,
             "low": 105.0,
             "close": 106.5,
-            "tickVolume": 1000,
+            "volume": 1000,
         }
     )
     for i in range(50):
@@ -60,7 +60,7 @@ def test_fvg_detects_bullish_gap() -> None:
                 "high": 107.0,
                 "low": 106.0,
                 "close": 106.5,
-                "tickVolume": 1000,
+                "volume": 1000,
             }
         )
 

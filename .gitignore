@@ -41,7 +41,16 @@ coverage.xml
 *.swo
 
 # Local scratch
+AGENTS.md
+CODEX.local.md
 .research_files/
+.agent_notes/
+.agent_knowledge/
+PLAN.md
+implplan.md
+NOTES.md
+TODO.md
+WIP.md
 *.local
 *.bak
 *.orig
@@ -49,6 +58,7 @@ coverage.xml
 
 # Local tooling — never commit
 git-update.sh
+.git-update-tag-message.txt
 ANUSTIMES.md
 ANUSTIMES_*.md
 pyrightconfig.json
@@ -59,3 +69,15 @@ pyrightconfig.json
 .envrc
 .testing/
 .telemetry/
+
+# Test and profiling artifacts
+coverage.txt
+coverage.out
+profile.out
+.cover/
+
+# Local runtime and editor selectors
+.editorconfig
+.tool-versions
+.python-version
+.nvmrc

@@ -28,10 +28,21 @@ def test_health() -> None:
 @pytest.mark.parametrize(
     "case_id,body_fn,status,detail_substr",
     [
-        ("empty_bars",        lambda _: {"bars": [], "indicators": {"rsi": True}},     400, "bars"),
-        ("empty_indicators",  lambda b: {"bars": b, "indicators": {}},                  400, "indicators"),
-        ("unknown_indicator", lambda b: {"bars": b, "indicators": {"banana": True}},    400, "banana"),
-        ("too_few_bars",      lambda _: {"bars": [{"time": i, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "tickVolume": 0} for i in range(5)], "indicators": {"rsi": True}}, 400, "insufficient"),
+        ("empty_bars", lambda _: {"bars": [], "indicators": {"rsi": True}}, 400, "bars"),
+        ("empty_indicators", lambda b: {"bars": b, "indicators": {}}, 400, "indicators"),
+        ("unknown_indicator", lambda b: {"bars": b, "indicators": {"banana": True}}, 400, "banana"),
+        (
+            "too_few_bars",
+            lambda _: {
+                "bars": [
+                    {"time": i, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 0}
+                    for i in range(5)
+                ],
+                "indicators": {"rsi": True},
+            },
+            400,
+            "insufficient",
+        ),
     ],
     ids=lambda v: v if isinstance(v, str) else "",
 )
@@ -56,9 +67,7 @@ def test_compute_rejects_bad_request(
 
 
 @pytest.mark.parametrize("indicator", sorted(INDICATORS.keys()))
-def test_compute_each_registered_indicator(
-    bars_500: list[dict[str, Any]], indicator: str
-) -> None:
+def test_compute_each_registered_indicator(bars_500: list[dict[str, Any]], indicator: str) -> None:
     r = client.post("/", json={"bars": bars_500, "indicators": {indicator: True}})
     assert r.status_code == 200, r.text
     body = r.json()
@@ -100,10 +109,10 @@ def test_compute_response_only_contains_requested_keys(
 @pytest.mark.parametrize(
     "output_key,params",
     [
-        ("stochFast",  {"type": "stoch", "k": 5,  "d": 3, "smoothK": 3}),
-        ("stochMed",   {"type": "stoch", "k": 14, "d": 3, "smoothK": 3}),
-        ("stochSlow",  {"type": "stoch", "k": 21, "d": 7, "smoothK": 5}),
-        ("stochUltra", {"type": "stoch", "k": 3,  "d": 2, "smoothK": 1}),
+        ("stochFast", {"type": "stoch", "k": 5, "d": 3, "smoothK": 3}),
+        ("stochMed", {"type": "stoch", "k": 14, "d": 3, "smoothK": 3}),
+        ("stochSlow", {"type": "stoch", "k": 21, "d": 7, "smoothK": 5}),
+        ("stochUltra", {"type": "stoch", "k": 3, "d": 2, "smoothK": 1}),
     ],
 )
 def test_compute_multiple_instances_same_type_per_key_shape(
@@ -125,8 +134,8 @@ def test_compute_multiple_stochs_produce_distinct_series(
         json={
             "bars": bars_500,
             "indicators": {
-                "stochFast":  {"type": "stoch", "k": 5,  "d": 3, "smoothK": 3},
-                "stochSlow":  {"type": "stoch", "k": 21, "d": 7, "smoothK": 5},
+                "stochFast": {"type": "stoch", "k": 5, "d": 3, "smoothK": 3},
+                "stochSlow": {"type": "stoch", "k": 21, "d": 7, "smoothK": 5},
             },
         },
     )
@@ -159,12 +168,105 @@ def test_vwap_accepts_session_offset_snake_case(
     assert camel.json()["vwap"] == snake.json()["vwap"]
 
 
-@pytest.mark.parametrize("field", ["tickVolume", "realVolume", "tick_volume", "real_volume"])
-def test_bar_rejects_negative_volume(field: str) -> None:
-    """schema.json declares minimum: 0 on Bar.tickVolume / realVolume.
-    Pydantic now enforces ge=0 — negatives must 422 instead of silently going through."""
-    bar = {"time": 1, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, field: -1}
+def test_bar_rejects_negative_volume() -> None:
+    bar = {
+        "time": 1,
+        "open": 1.0,
+        "high": 1.0,
+        "low": 1.0,
+        "close": 1.0,
+        "volume": -1,
+    }
     r = client.post("/", json={"bars": [bar], "indicators": {"rsi": True}})
     assert r.status_code == 422, r.text
 
 
+@pytest.mark.parametrize("spec", [False, None, 1, "rsi"])
+def test_indicator_spec_must_be_true_or_an_object(
+    bars_500: list[dict[str, Any]],
+    spec: Any,
+) -> None:
+    response = client.post("/", json={"bars": bars_500, "indicators": {"rsi": spec}})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "indicators",
+    [
+        {"rsi": {"length": 0}},
+        {"rsi": {"length": 14, "ignored": 1}},
+        {"macd": {"fast": 26, "slow": 12}},
+        {"previousHighLow": {"timeFrame": "nonsense"}},
+    ],
+)
+def test_indicator_parameters_are_validated(
+    bars_500: list[dict[str, Any]],
+    indicators: dict[str, Any],
+) -> None:
+    response = client.post("/", json={"bars": bars_500, "indicators": indicators})
+    assert response.status_code == 400, response.text
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"session": "Not a session"},
+        {"session": "Custom"},
+        {"session": "Custom", "startTime": "7:00", "endTime": "09:00"},
+        {"session": "London", "startTime": "07:00", "endTime": "16:00"},
+    ],
+)
+def test_session_parameters_reject_ignored_or_invalid_windows(
+    bars_500: list[dict[str, Any]],
+    params: dict[str, Any],
+) -> None:
+    response = client.post(
+        "/",
+        json={"bars": bars_500, "indicators": {"session": {"type": "sessions", **params}}},
+    )
+    assert response.status_code == 400, response.text
+
+
+def test_custom_session_accepts_complete_utc_window(
+    bars_500: list[dict[str, Any]],
+) -> None:
+    response = client.post(
+        "/",
+        json={
+            "bars": bars_500,
+            "indicators": {
+                "session": {
+                    "type": "sessions",
+                    "session": "Custom",
+                    "startTime": "07:00",
+                    "endTime": "16:00",
+                }
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda bar: bar.update(high=bar["low"] - 1),
+        lambda bar: bar.update(open=bar["high"] + 1),
+        lambda bar: bar.update(close=bar["low"] - 1),
+    ],
+)
+def test_bar_rejects_impossible_ohlc_geometry(
+    bars_500: list[dict[str, Any]],
+    mutation: Any,
+) -> None:
+    mutation(bars_500[0])
+    response = client.post("/", json={"bars": bars_500, "indicators": {"rsi": True}})
+    assert response.status_code == 422
+
+
+def test_bar_times_must_be_strictly_increasing(
+    bars_500: list[dict[str, Any]],
+) -> None:
+    bars_500[1]["time"] = bars_500[0]["time"]
+    response = client.post("/", json={"bars": bars_500, "indicators": {"rsi": True}})
+    assert response.status_code == 422

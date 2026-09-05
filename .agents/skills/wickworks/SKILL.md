@@ -56,23 +56,21 @@ One endpoint does the work. Body:
 
 ```json
 {
-  "symbol": "EURUSD",
+  "symbol": "SYMBOL_X",
   "timeframe": "H1",
-  "recentBars": 10,
   "bars": [
-    { "time": 1700000000, "open": 1.08, "high": 1.09, "low": 1.07, "close": 1.085, "tickVolume": 1200 }
+    { "time": 1700000000, "open": 100, "high": 102, "low": 99, "close": 101, "volume": 1200 }
   ],
   "indicators": { "rsi": true, "macd": true }
 }
 ```
 
-- **`bars`** — array of `{ time (UTC unix seconds), open, high, low, close, tickVolume?, realVolume? }`. `tickVolume`/`tick_volume` and `realVolume`/`real_volume` aliases both accepted.
+- **`bars`:** array of `{ time (UTC unix seconds), open, high, low, close, volume }`. `volume` is required, finite, and non-negative. The caller chooses the activity or volume series before calling Wickworks.
 - **`indicators`** — a map of **output-name → spec**. This is the whole point:
   - `"rsi": true` → run `rsi` with defaults, output under key `rsi`.
   - `"rsi14": { "type": "rsi", "length": 14 }` → run `rsi` with `length=14`, output under key `rsi14` (the key is the output name, `type` picks the indicator).
   - `"rsi": { "length": 21 }` → key doubles as the type when no `type` is given.
-- **`symbol` / `timeframe`** — echoed back in the response.
-- **`recentBars`** — signal-like outputs within this many bars of the end get `isRecent: true`.
+- **`symbol` / `timeframe`:** echoed back in the response. `timeframe` is an opaque chart interval label, not a resampling instruction.
 
 Response envelope: `{ symbol, timeframe, candles, <outputName>: <series-or-object>, ... }` — one entry per requested output, each a series the same length as `bars` (or a structured object for multi-line indicators like `macd` / `bbands` / `ichimoku`, or an array of objects for SMC like `orderBlocks` / `fvgs`).
 
@@ -85,7 +83,7 @@ curl -s "$WICKWORKS_URL/metadata"
 
 # Compute RSI + MACD + order blocks in one call
 curl -s -X POST "$WICKWORKS_URL/" -H 'Content-Type: application/json' -d '{
-  "symbol": "EURUSD", "timeframe": "H1",
+  "symbol": "SYMBOL_X", "timeframe": "H1",
   "bars": [ /* ...OHLC bars... */ ],
   "indicators": { "rsi": true, "macd": true, "orderBlocks": true }
 }'
@@ -116,7 +114,7 @@ wickworks mounts a [Model Context Protocol](https://modelcontextprotocol.io) ser
 | `health` | — | `{ ok, version }` |
 | `list_indicators` | — | `{ indicators: [...] }` — the registered indicator types |
 | `metadata` | — | the output-path catalog (`{ version, count, entries }`) |
-| `compute` | `bars`, `indicators`, `timeframe?`, `symbol?`, `recent_bars?` | the same envelope as `POST /` |
+| `compute` | `bars`, `indicators`, `timeframe?`, `symbol?` | the same envelope as `POST /` |
 
 Point an MCP client straight at the endpoint:
 
@@ -130,7 +128,7 @@ curl -s "$WICKWORKS_URL/mcp/" \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
        "params":{"name":"compute","arguments":{
-         "bars":[/* ...OHLC... */],"indicators":{"rsi":true},"symbol":"EURUSD","timeframe":"H1"}}}'
+         "bars":[/* ...OHLC... */],"indicators":{"rsi":true},"symbol":"SYMBOL_X","timeframe":"H1"}}}'
 ```
 
 The [`@psyb0t/wickworks`](https://github.com/psyb0t/docker-wickworks/tree/main/.agents/plugins/wickworks) OpenClaw plugin is a thin stdio↔HTTP bridge to this endpoint for MCP clients that only speak local stdio servers.

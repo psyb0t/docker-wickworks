@@ -31,7 +31,8 @@ from numpyencoder import NumpyEncoder
 from pydantic import ValidationError
 
 from . import __version__, config
-from .compute import InsufficientBarsError, UnknownIndicatorError, compute_dataframe
+from .compute import compute_dataframe
+from .errors import InsufficientBarsError, InvalidIndicatorSpecError, UnknownIndicatorError
 from .metadata import all_metadata
 from .registry import INDICATORS
 from .schemas import ComputeRequest
@@ -111,17 +112,16 @@ def build_mcp_server() -> FastMCP:
         indicators: dict[str, Any],
         timeframe: str = "",
         symbol: str = "",
-        recent_bars: int = 10,
     ) -> dict[str, Any]:
         """Compute indicators + SMC primitives from OHLC bars.
 
         ``bars``: list of ``{time (UTC unix seconds), open, high, low, close,
-        tickVolume?, realVolume?}``. ``indicators``: map of output-name -> spec,
+        volume}``. The caller chooses the volume or activity series before the
+        request. ``indicators``: map of output-name -> spec,
         where ``spec=true`` runs the indicator (keyed by name) with defaults, or
         a params object overrides them (include ``"type"`` to run a known
-        indicator under a different output name). ``recent_bars``: signal-like
-        outputs within this many bars of the end get ``isRecent=true``.
-        ``symbol`` / ``timeframe`` are echoed back.
+        indicator under a different output name). ``symbol`` / ``timeframe``
+        are echoed back.
 
         Returns the primitives as JSON (camelCase keys) — the same envelope as
         the REST ``POST /`` (``symbol``, ``timeframe``, ``candles``, plus one
@@ -136,14 +136,12 @@ def build_mcp_server() -> FastMCP:
         if len(bars) > config.MAX_BARS:
             raise ValueError(f"too many bars: {len(bars)} > MAX_BARS={config.MAX_BARS}")
 
-        # Validate/normalize through the same pydantic model the REST endpoint
-        # uses, so tickVolume/tick_volume alias handling matches exactly.
+        # Validate and normalize through the same model as the REST endpoint.
         try:
             req = ComputeRequest.model_validate(
                 {
                     "symbol": symbol,
                     "timeframe": timeframe,
-                    "recent_bars": recent_bars,
                     "bars": bars,
                     "indicators": indicators,
                 }
@@ -164,9 +162,8 @@ def build_mcp_server() -> FastMCP:
                 indicators=req.indicators,
                 timeframe=req.timeframe,
                 symbol=req.symbol,
-                recent_bars=req.recent_bars,
             )
-        except UnknownIndicatorError as exc:
+        except (InvalidIndicatorSpecError, UnknownIndicatorError) as exc:
             raise ValueError(str(exc)) from exc
         except InsufficientBarsError as exc:
             raise ValueError(

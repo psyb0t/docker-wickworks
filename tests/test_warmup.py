@@ -9,11 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
-from _helpers import (  # type: ignore[import-not-found]
-    monotone_up_bars,
-    post,
-)
+from _helpers import monotone_up_bars, post  # type: ignore[import-not-found]
 
 
 def _leading_none_count(series: list[Any]) -> int:

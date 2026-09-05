@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from _helpers import (  # type: ignore[import-not-found]
-    monotone_down_bars,
-    monotone_up_bars,
-    post,
-)
+from _helpers import monotone_down_bars, monotone_up_bars, post  # type: ignore[import-not-found]
 
 
 def test_psar_uptrend_long_populated() -> None:
@@ -31,6 +27,6 @@ def test_psar_exclusive_sides_on_real_data(
     longs = out["psar"]["long"]
     shorts = out["psar"]["short"]
     for lo, sh in zip(longs, shorts):
-        assert not (lo is not None and sh is not None), (
-            "PSAR long/short must not both be populated on same bar"
-        )
+        assert not (
+            lo is not None and sh is not None
+        ), "PSAR long/short must not both be populated on same bar"

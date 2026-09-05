@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import (  # type: ignore[import-not-found]
     assert_last_bar_matches,
     bars_to_df,
@@ -22,7 +21,6 @@ from _helpers import (  # type: ignore[import-not-found]
     ref_sma,
     ref_vwma,
 )
-
 
 # -----------------------------------------------------------------------------
 # SMA — closed-form arithmetic, hits exactly.
@@ -38,7 +36,7 @@ def test_sma_of_arithmetic_series() -> None:
             "high": float(i + 1),
             "low": float(i + 1),
             "close": float(i + 1),
-            "tickVolume": 1,
+            "volume": 1,
         }
         for i in range(n)
     ]

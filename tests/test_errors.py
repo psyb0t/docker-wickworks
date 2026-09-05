@@ -16,7 +16,7 @@ def _one_bar(i: int = 0, price: float = 100.0) -> dict:
         "high": price,
         "low": price,
         "close": price,
-        "tickVolume": 1,
+        "volume": 1,
     }
 
 
@@ -78,9 +78,9 @@ def test_insufficient_bars_lists_all_deficits_at_once() -> None:
         json={
             "bars": [_one_bar(i) for i in range(30)],
             "indicators": {
-                "fastSma": {"type": "sma", "length": 10},     # OK: needs 10
-                "slowSma": {"type": "sma", "length": 200},    # FAIL: needs 200
-                "longRsi": {"type": "rsi", "length": 50},     # FAIL: needs 51
+                "fastSma": {"type": "sma", "length": 10},  # OK: needs 10
+                "slowSma": {"type": "sma", "length": 200},  # FAIL: needs 200
+                "longRsi": {"type": "rsi", "length": 50},  # FAIL: needs 51
             },
         },
     )

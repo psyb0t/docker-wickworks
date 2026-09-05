@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/psyb0t/wickworks/schema.json",
   "title": "Wickworks Compute API",
-  "description": "Machine-readable contract for POST /. The wickworks HTTP surface is exactly two endpoints: POST / (compute) and GET /health. This schema validates the request body and describes the response envelope.",
+  "description": "Machine-readable contract for POST /. Wickworks also exposes GET /health and GET /metadata.",
   "type": "object",
   "$ref": "#/$defs/ComputeRequest",
   "$defs": {
@@ -43,31 +43,29 @@
       "properties": {
         "time": {
           "type": "integer",
+          "minimum": 0,
           "description": "UTC unix seconds."
         },
         "open": {
-          "type": "number"
+          "type": "number",
+          "exclusiveMinimum": 0
         },
         "high": {
-          "type": "number"
+          "type": "number",
+          "exclusiveMinimum": 0
         },
         "low": {
-          "type": "number"
+          "type": "number",
+          "exclusiveMinimum": 0
         },
         "close": {
-          "type": "number"
+          "type": "number",
+          "exclusiveMinimum": 0
         },
-        "tickVolume": {
-          "type": "integer",
+        "volume": {
+          "type": "number",
           "minimum": 0,
-          "default": 0,
-          "description": "Canonical volume field. All volume-based indicators (VWAP, OBV, VWMA, MFI, CMF, AD, ADOSC, KVO) read this."
-        },
-        "realVolume": {
-          "type": "integer",
-          "minimum": 0,
-          "default": 0,
-          "description": "Accepted for forward-compat. Indicator math currently reads tickVolume, not this."
+          "description": "Caller-selected per-bar activity or volume measure. Wickworks treats it as one numeric series and does not interpret vendor-specific volume types."
         }
       },
       "required": [
@@ -75,8 +73,10 @@
         "open",
         "high",
         "low",
-        "close"
-      ]
+        "close",
+        "volume"
+      ],
+      "additionalProperties": false
     },
     "ComputeRequest": {
       "type": "object",
@@ -84,18 +84,13 @@
         "symbol": {
           "type": "string",
           "default": "",
-          "description": "Echoed in response."
+          "description": "Caller-supplied instrument label, echoed unchanged in the response."
         },
         "timeframe": {
           "type": "string",
           "default": "",
-          "description": "Echoed in response."
-        },
-        "recentBars": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 10,
-          "description": "Reserved for future signal-tagging windows. Currently unused \u2014 wickworks emits primitives only and no output type is recency-tagged."
+          "title": "Chart interval label only",
+          "description": "Top-level ComputeRequest.timeframe is an opaque caller-supplied chart interval label, such as H4. Wickworks echoes it and attaches it to analysis summaries, but does not parse it or use it to bucket bars. Calculations use the submitted bar values and timestamps."
         },
         "bars": {
           "type": "array",
@@ -125,7 +120,8 @@
       "required": [
         "bars",
         "indicators"
-      ]
+      ],
+      "additionalProperties": false
     },
     "IndicatorSpec": {
       "description": "Any indicator request spec. The `type` field discriminates; when omitted at runtime, the output-key name is used as the type.",
@@ -953,8 +949,10 @@
         },
         "timeFrame": {
           "type": "string",
+          "enum": ["15m", "15min", "30m", "30min", "1H", "1h", "4H", "4h", "1D", "1d", "1W", "1w", "1M", "1ME"],
           "default": "1D",
-          "description": "Pandas resample freq (\"1D\", \"1W\", \"4h\")."
+          "title": "Previous-period aggregation bucket",
+          "description": "Nested indicators.<output-name>.timeFrame selects the aggregation bucket used only by previousHighLow. It is independent of top-level ComputeRequest.timeframe. Bars are grouped into fixed UTC-aligned periods, weeks run Monday through Sunday, and exchange sessions are not considered."
         }
       },
       "required": [
@@ -971,7 +969,8 @@
         "session": {
           "type": "string",
           "default": "London",
-          "description": "Session name as accepted by smartmoneyconcepts (\"London\", \"New York\", \"Tokyo\", \"Sydney\", \u2026)."
+          "enum": ["Sydney", "Tokyo", "London", "New York", "Asian kill zone", "London open kill zone", "New York kill zone", "london close kill zone", "Custom"],
+          "description": "Named UTC session window. Use Custom with startTime and endTime for another window."
         },
         "startTime": {
           "type": [
@@ -979,7 +978,7 @@
             "null"
           ],
           "default": null,
-          "description": "Override session start (HH:MM, exchange-local)."
+          "description": "Custom session start in UTC HH:MM. Valid only when session is Custom."
         },
         "endTime": {
           "type": [
@@ -987,7 +986,7 @@
             "null"
           ],
           "default": null,
-          "description": "Override session end (HH:MM, exchange-local)."
+          "description": "Custom session end in UTC HH:MM. Valid only when session is Custom."
         }
       },
       "required": [
@@ -1086,7 +1085,7 @@
     },
     "OrderBlock": {
       "type": "object",
-      "description": "Used by orderBlocks and fvg outputs (identical shape).",
+      "description": "Price zone returned by orderBlocks and fvg. Order-block results also include optional mitigation and touch-state fields.",
       "properties": {
         "type": {
           "enum": [
@@ -1106,7 +1105,48 @@
         },
         "time": {
           "type": "integer",
-          "description": "UTC seconds."
+          "description": "Origin bar time in UTC seconds."
+        },
+        "originAt": {
+          "type": "integer",
+          "description": "Origin bar time in UTC seconds."
+        },
+        "confirmedAt": {
+          "type": "integer",
+          "description": "First bar time when the zone was knowable, in UTC seconds."
+        },
+        "observedAsOf": {
+          "type": "integer",
+          "description": "Last submitted bar time used to compute this snapshot, in UTC seconds."
+        },
+        "mitigatedWickAt": {
+          "type": ["integer", "null"],
+          "description": "First later bar whose wick met the library's mitigation rule, or null. Order blocks only."
+        },
+        "mitigatedCloseAt": {
+          "type": ["integer", "null"],
+          "description": "First later bar whose close crossed the zone in the invalidating direction, or null. Order blocks only."
+        },
+        "mitigatedWick": {
+          "type": "boolean",
+          "description": "Whether mitigatedWickAt is present. Order blocks only."
+        },
+        "mitigatedClose": {
+          "type": "boolean",
+          "description": "Whether mitigatedCloseAt is present. Order blocks only."
+        },
+        "touchCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of distinct later zone entries after the default five-bar settle window. Order blocks only."
+        },
+        "touchEvents": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "One-based offsets from candleIdx where each later contiguous zone entry began. Order blocks only."
         },
         "distancePct": {
           "type": "number",
@@ -1119,6 +1159,9 @@
         "bottom",
         "candleIdx",
         "time",
+        "originAt",
+        "confirmedAt",
+        "observedAsOf",
         "distancePct"
       ]
     },
@@ -1145,13 +1188,28 @@
         },
         "time": {
           "type": "integer"
+        },
+        "originAt": {
+          "type": "integer",
+          "description": "Time of the swing level that was broken, in UTC seconds."
+        },
+        "confirmedAt": {
+          "type": "integer",
+          "description": "Time of the bar that broke the level, in UTC seconds."
+        },
+        "observedAsOf": {
+          "type": "integer",
+          "description": "Last submitted bar time used to compute this snapshot, in UTC seconds."
         }
       },
       "required": [
         "event",
         "direction",
         "level",
-        "time"
+        "time",
+        "originAt",
+        "confirmedAt",
+        "observedAsOf"
       ]
     },
     "SwingLevel": {
@@ -1168,12 +1226,27 @@
         },
         "time": {
           "type": "integer"
+        },
+        "originAt": {
+          "type": "integer",
+          "description": "Candidate swing bar time in UTC seconds."
+        },
+        "confirmedAt": {
+          "type": "integer",
+          "description": "First bar time when the centered swing was confirmed, in UTC seconds."
+        },
+        "observedAsOf": {
+          "type": "integer",
+          "description": "Last submitted bar time used to compute this snapshot, in UTC seconds."
         }
       },
       "required": [
         "type",
         "level",
-        "time"
+        "time",
+        "originAt",
+        "confirmedAt",
+        "observedAsOf"
       ]
     },
     "SrLevel": {
@@ -1389,7 +1462,7 @@
             "number",
             "null"
           ],
-          "description": "Current tick volume / rolling mean."
+          "description": "Current caller-supplied volume / rolling mean."
         },
         "obv": {
           "type": [
@@ -1490,7 +1563,8 @@
           "type": "string"
         },
         "timeframe": {
-          "type": "string"
+          "type": "string",
+          "description": "The opaque chart interval label echoed from the request."
         },
         "candles": {
           "type": "integer",

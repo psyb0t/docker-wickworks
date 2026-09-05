@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from _helpers import post  # type: ignore[import-not-found]
 
 
@@ -22,9 +21,7 @@ def test_meta_is_echoed(eurusd_h1_fixture: dict[str, Any]) -> None:
 
 
 @pytest.mark.parametrize("indicator", ["rsi", "atr"])
-def test_series_length_matches_input(
-    eurusd_h1_fixture: dict[str, Any], indicator: str
-) -> None:
+def test_series_length_matches_input(eurusd_h1_fixture: dict[str, Any], indicator: str) -> None:
     series = post(eurusd_h1_fixture["bars"], {indicator: True})[indicator]
     assert isinstance(series, list)
     assert len(series) == eurusd_h1_fixture["count"]

@@ -3,8 +3,6 @@
 import pandas as pd
 import pandas_ta as ta
 
-from ._helpers import vol_col
-
 # Approximate seconds per timeframe
 _TF_SECONDS = {
     "M1": 60,
@@ -57,19 +55,18 @@ def add(df: pd.DataFrame, length: int = 0) -> pd.DataFrame:
                      use this for spike/dryup detection instead of vol_ratio
         obv        — on-balance volume
     """
-    vol = vol_col(df)
     if length == 0:
         tf = _infer_tf(df)
         length = _TF_VOL_LENGTH.get(tf or "", 20)
-    df["vol_sma"] = ta.sma(df[vol], length=length)
-    df["vol_ratio"] = df[vol] / df["vol_sma"]
-    df["vol_sma_21"] = ta.sma(df[vol], length=21)
-    df["vol_sma_50"] = ta.sma(df[vol], length=50)
+    df["vol_sma"] = ta.sma(df["volume"], length=length)
+    df["vol_ratio"] = df["volume"] / df["vol_sma"]
+    df["vol_sma_21"] = ta.sma(df["volume"], length=21)
+    df["vol_sma_50"] = ta.sma(df["volume"], length=50)
     # Percentile rank: where does this bar sit in its rolling window (0-100)
     df["vol_pct"] = (
-        df[vol].rolling(length, min_periods=max(5, length // 2)).rank(pct=True).mul(100)
+        df["volume"].rolling(length, min_periods=max(5, length // 2)).rank(pct=True).mul(100)
     )
-    obv = ta.obv(df["close"], df[vol])
+    obv = ta.obv(df["close"], df["volume"])
     if obv is not None:
         df["obv"] = obv
     return df

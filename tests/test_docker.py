@@ -1,15 +1,14 @@
 """End-to-end tests against the real Docker image.
 
 Opt-in: marked with @pytest.mark.docker. Run with `pytest -m docker`.
-The image is built once per test session if missing, started on an ephemeral
-host port, health-checked, and torn down (auto_remove=True) on exit.
+The Make target builds the image before the test session. The fixture starts it
+on an ephemeral host port, health-checks it, and tears it down on exit.
 """
 
 from __future__ import annotations
 
 import math
 import time
-from pathlib import Path
 from typing import Any, Iterator
 
 import pytest
@@ -22,7 +21,6 @@ DockerContainer = testcontainers_core.DockerContainer
 pytestmark = pytest.mark.docker
 
 IMAGE = "psyb0t/wickworks:test"
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _bars(n: int = 200) -> list[dict[str, Any]]:
@@ -38,7 +36,7 @@ def _bars(n: int = 200) -> list[dict[str, Any]]:
                 "high": round(max(o, c) + 0.0003, 5),
                 "low": round(min(o, c) - 0.0003, 5),
                 "close": round(c, 5),
-                "tickVolume": 1000 + (i % 50),
+                "volume": 1000 + (i % 50),
             }
         )
         p = c
@@ -51,8 +49,8 @@ def _image() -> str:
     client = docker_sdk.from_env()
     try:
         client.images.get(IMAGE)
-    except docker_sdk.errors.ImageNotFound:
-        client.images.build(path=str(PROJECT_ROOT), tag=IMAGE, rm=True)
+    except docker_sdk.errors.ImageNotFound as exc:
+        pytest.fail(f"missing {IMAGE}; run make test-docker first: {exc}", pytrace=False)
     return IMAGE
 
 
@@ -141,10 +139,10 @@ def test_docker_compute_multi_stoch(base_url: str) -> None:
 @pytest.mark.parametrize(
     "case_id,body,status,detail_substr",
     [
-        ("unknown_indicator", {"bars": _bars(),   "indicators": {"banana": True}}, 400, "banana"),
-        ("too_few_bars",      {"bars": _bars(10), "indicators": {"rsi": True}},    422, "insufficient"),
-        ("empty_bars",        {"bars": [],        "indicators": {"rsi": True}},    400, "bars"),
-        ("empty_indicators",  {"bars": _bars(),   "indicators": {}},                400, "indicators"),
+        ("unknown_indicator", {"bars": _bars(), "indicators": {"banana": True}}, 400, "banana"),
+        ("too_few_bars", {"bars": _bars(10), "indicators": {"rsi": True}}, 400, "insufficient"),
+        ("empty_bars", {"bars": [], "indicators": {"rsi": True}}, 400, "bars"),
+        ("empty_indicators", {"bars": _bars(), "indicators": {}}, 400, "indicators"),
     ],
     ids=lambda v: v if isinstance(v, str) else "",
 )
@@ -153,4 +151,4 @@ def test_docker_rejects_bad_request(
 ) -> None:
     r = requests.post(f"{base_url}/", json=body, timeout=5)
     assert r.status_code == status, r.text
-    assert detail_substr.lower() in r.json()["detail"].lower()
+    assert detail_substr.lower() in str(r.json()["detail"]).lower()

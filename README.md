@@ -9,7 +9,7 @@ The dumb-as-rocks OHLC analyzer. You throw bars at it over HTTP, it throws indic
 
 Every snake-oil-flavored TA SaaS out there wants to tell you when to buy. Wickworks tells you the order block is at 1.0832 and the RSI is 71.4. The "what does that mean?" part is where your strategy lives — and it should live in your code, not behind someone else's paywall.
 
-Built on `pandas_ta` and `smartmoneyconcepts`, wrapped in a FastAPI server, locked behind 280+ tests that diff our output against closed-form references on real EURUSD ticks. If a math bug slips in, the test suite screams before the container builds.
+Built on `pandas_ta` and `smartmoneyconcepts`, wrapped in a FastAPI server, locked behind 370 tests that diff our output against closed-form references on real EURUSD ticks. If a math bug slips in, the test suite screams before the container builds.
 
 ## Table of Contents
 
@@ -17,6 +17,7 @@ Built on `pandas_ta` and `smartmoneyconcepts`, wrapped in a FastAPI server, lock
 - [Quick Start](#quick-start)
 - [API](#api)
   - [`GET /health`](#get-health)
+  - [`GET /metadata`](#get-metadata)
   - [`POST /` — compute](#post---compute)
   - [The `indicators` object](#the-indicators-object--the-whole-point)
   - [Concepts](#concepts)
@@ -66,16 +67,15 @@ services:
       MIN_BARS: "50"
 ```
 
-### Local (uv-based)
+### Local development container
 
 ```bash
-make install     # uv sync from lockfile (supply-chain-pinned, see below)
-make run         # uvicorn on :8000
+make run         # build the dev image and run uvicorn on :8000
 ```
 
 ## API
 
-Two endpoints. That's the whole surface.
+Three endpoints. That's the whole surface.
 
 ### `GET /health`
 
@@ -84,8 +84,14 @@ curl -s http://localhost:8000/health
 ```
 
 ```json
-{ "ok": true, "version": "0.3.2" }
+{ "ok": true, "version": "0.7.0" }
 ```
+
+### `GET /metadata`
+
+Returns the versioned catalog of labels, descriptions, units, categories, and
+interpretation notes for every output path. Consumers can cache it for the
+reported Wickworks version.
 
 ### `POST /` — compute
 
@@ -98,7 +104,7 @@ curl -s -X POST http://localhost:8000/ \
     "symbol": "EURUSD",
     "timeframe": "H1",
     "bars": [
-      { "time": 1700000000, "open": 1.0832, "high": 1.0851, "low": 1.0828, "close": 1.0844, "tickVolume": 1247 },
+      { "time": 1700000000, "open": 1.0832, "high": 1.0851, "low": 1.0828, "close": 1.0844, "volume": 1247 },
       ...
     ],
     "indicators": {
@@ -149,9 +155,9 @@ The outputs below map to a handful of recurring trading ideas. If you've used an
 
 **In-house event constructs you won't find on TradingView:**
 
-- **`srLevels`** — support / resistance construction: take pivot levels from a 7-bar swing detector (`sw7`), keep only those that price has tested at least **twice** (within ½·ATR of the level), enforce **≥3·ATR spacing** between kept levels so you don't get three nearly-identical levels stacked together, return up to 3 nearest above current price (resistance) and 3 nearest below (support).
-- **Order block / FVG `mitigated` filter** — a zone is _unmitigated_ when price has not yet traded back into it since formation. We return **only unmitigated zones** — the live, untested ones. A mitigated zone is consumed history; it's filtered out of the response.
-- **BOS vs CHoCH** — both come from Smart-Money-Concepts structural analysis. **BOS** (Break of Structure) = trend continuation: the most recent swing in the trend's direction is taken out (uptrend breaks the prior higher-high; downtrend breaks the prior lower-low). **CHoCH** (Change of Character) = trend reversal: price breaks _against_ the prior trend's structure for the first time (uptrend breaks a swing low; downtrend breaks a swing high). BOS = "trend is still alive"; CHoCH = "trend just died." These are structural facts (a level was crossed) — interpreting "alive" vs "died" is the consumer's job.
+- **`srLevels`** uses at most the latest 500 bars, a fixed five-bar separation between distinct touches, and at least two tests within half an ATR. It returns up to three nearest levels on each side of price.
+- **Order blocks and FVGs** expose different state. Order blocks include mitigation state and times so consumers can choose their own freshness rule. FVG output contains only gaps that remain unmitigated.
+- **BOS vs CHoCH** are classifications produced by the configured Smart Money Concepts swing algorithm. A BOS marks a same-direction structural break. A CHoCH marks an opposite-direction break. Neither label proves continuation or reversal.
 
 ### Available indicators
 
@@ -201,7 +207,7 @@ All take a single `length` parameter and return a Series.
 
 ##### `vwap` — session-anchored VWAP
 
-Volume-weighted average price, **reset at the start of each session** (daily / weekly / monthly). Unlike a rolling MA, VWAP accumulates from a fixed anchor — by the end of the session everyone has been trading "around" it. Institutions use it as a fair-value benchmark and execution target: price below VWAP = the instrument is trading **cheap** for the session, above = **rich**. The `sessionOffset` lets you align the anchor to your trading session (NY = `-5h`, EET = `-2h`, Tokyo = `7h`) rather than UTC midnight.
+Volume-weighted average price, reset at the configured daily, weekly, or monthly anchor. Unlike a rolling average, VWAP accumulates from that fixed boundary. The `sessionOffset` shifts the UTC anchor by a fixed duration. It does not apply exchange calendars or daylight-saving changes.
 
 | Param           | Type                    | Default | Description                                                                       |
 | --------------- | ----------------------- | ------: | --------------------------------------------------------------------------------- |
@@ -357,7 +363,7 @@ Measure the _spread_ of price action, not its direction. These don't generate bu
 
 #### Volume / money flow
 
-Volume-derived lines that tell you **who's behind the move**. Use to **confirm breakouts** (price breaks resistance + rising volume line = real; same break with flat/falling volume = suspect, often fades) and **spot accumulation/distribution** (price flat but money-flow rising = quiet buying behind the scenes; price flat but money-flow falling = quiet distribution).
+Volume-derived lines compare price movement with the caller-selected activity series. They can show whether activity expanded or contracted with a move, but they do not identify participants or prove that a breakout is real.
 
 ##### `obv` and `ad` — parameterless cumulative lines
 
@@ -514,21 +520,21 @@ The flag fields form a per-bar state machine:
 
 ### SMC primitives
 
-**Smart Money Concepts** is a price-action framework that maps where institutional ("smart money") order flow likely sat on the chart. Instead of summary indicators, it produces **event-list outputs**: concrete zones, levels, and structural shifts you can point to. Most outputs are filtered, sorted, and clipped server-side — you get the relevant subset, not the firehose.
+**Smart Money Concepts** is a price-action framework that labels zones, levels, and structural shifts from OHLCV patterns. Wickworks reports what the configured algorithms detected. It does not observe institutional orders or prove that a level will cause a reaction.
 
 The core SMC ideas you'll see in the outputs below:
 
-- **Order block** — the last opposite-direction candle (or cluster) right before a strong impulsive move. The theory: institutions placed large orders here and didn't fill them all; when price retests the zone, they finish filling, and price reacts.
-- **Fair Value Gap (FVG)** — a 3-bar imbalance where bar 1's wick and bar 3's wick don't overlap, leaving a "gap" of price action that traded too fast to fill on the way through. Markets tend to revisit these gaps to fill them.
-- **Mitigation** — when price trades back into an order block or FVG, the zone is "mitigated" (its liquidity is used up). **We return unmitigated zones only** — the live, untested ones.
+- **Order block** is an algorithmically detected zone around the last opposite-direction candle before a qualifying move. Some SMC methods watch a later retest, but the calculation does not observe orders or predict a reaction.
+- **Fair Value Gap (FVG)** is a three-bar pattern where the first and third wicks do not overlap. The output records the detected gap and its mitigation state. It does not predict a revisit.
+- **Mitigation** describes a later price return into a zone. Order blocks retain mitigation fields. FVG output contains only gaps that remain unmitigated.
 - **Swing high/low** — local pivots in price structure. SMC trend identification is built on the sequence of swings (HH/HL = uptrend, LH/LL = downtrend).
-- **BOS (Break of Structure)** — price breaks the most recent swing **in the trend's direction**. Trend is alive, continuation signal.
-- **CHoCH (Change of Character)** — price breaks **against** the prior trend's swing structure for the first time. Trend may have just died — first heads-up of a reversal.
+- **BOS (Break of Structure)** marks a same-direction break of a swing level under the configured algorithm.
+- **CHoCH (Change of Character)** marks an opposite-direction break under the configured algorithm. It is not proof of a reversal.
 - **Liquidity** — clusters of presumed stop-loss orders that sit above equal highs / below equal lows. Price tends to "hunt liquidity" before reversing.
 
 #### Shared object shapes
 
-**OrderBlock** (used by `orderBlocks` and `fvg`):
+**Price zone** (used by `orderBlocks` and `fvg`):
 
 ```json
 {
@@ -537,18 +543,28 @@ The core SMC ideas you'll see in the outputs below:
   "bottom": 1.0871,
   "candleIdx": 312,
   "time": 1700123400,
+  "originAt": 1700123400,
+  "confirmedAt": 1700127000,
+  "observedAsOf": 1700200000,
   "distancePct": 0.082
 }
 ```
 
-| Field         | Type                       | Description                                                                      |
-| ------------- | -------------------------- | -------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------- |
-| `type`        | `"bullish"` \| `"bearish"` | Block direction. Bullish = expected support zone; bearish = expected resistance. |
-| `top`         | number                     | Upper price boundary of the zone                                                 |
-| `bottom`      | number                     | Lower price boundary of the zone                                                 |
-| `candleIdx`   | integer ≥ 0                | 0-based index into your submitted bars (the originating candle)                  |
-| `time`        | integer                    | Bar time, UTC seconds                                                            |
-| `distancePct` | number                     | `                                                                                | reference - price | / price \* 100`, distance from current price. Lower = closer = more imminent. |
+| Field          | Type                         | Description                                                                      |
+| -------------- | ---------------------------- | -------------------------------------------------------------------------------- |
+| `type`         | `"bullish"` or `"bearish"` | Zone direction. Bullish means support; bearish means resistance.                 |
+| `top`          | number                       | Upper price boundary of the zone.                                                |
+| `bottom`       | number                       | Lower price boundary of the zone.                                                |
+| `candleIdx`    | integer ≥ 0                  | Zero-based index of the originating bar in the submitted bars.                   |
+| `time`         | integer                      | Origin bar time in UTC seconds.                                                  |
+| `originAt`     | integer                      | Origin bar time in UTC seconds.                                                  |
+| `confirmedAt`  | integer                      | First bar time when the zone was knowable.                                       |
+| `observedAsOf` | integer                      | Last submitted bar time used to build the snapshot.                              |
+| `distancePct`  | number                       | Absolute distance from the reference edge to current price, divided by price.    |
+
+`orderBlocks` also returns `mitigatedWickAt`, `mitigatedCloseAt`,
+`mitigatedWick`, `mitigatedClose`, `touchCount`, and `touchEvents`. The FVG
+output includes only unmitigated gaps, so it does not return those fields.
 
 **BosChochEvent**, **SwingLevel**, **SrLevel**, **RecentRange**:
 
@@ -565,21 +581,21 @@ The core SMC ideas you'll see in the outputs below:
 
 ##### `orderBlocks`
 
-Live (unmitigated) order blocks across the submitted history. Use as **target zones**: a bullish block below price = a likely bounce zone; a bearish block above = a likely rejection zone.
+Order blocks across the submitted history, including wick and close mitigation state, mitigation times, and touch events. Consumers decide whether to show only fresh zones.
 
 - **Params:** none.
-- **Returns:** array of OrderBlock, max 20, sorted ascending by `|distancePct|` (closest to current price first).
+- **Returns:** array of OrderBlock, max 40, sorted ascending by `|distancePct|` (closest to current price first).
 
 ##### `fvg` (alias `fvgs`)
 
-Live (unmitigated) Fair Value Gaps. Same OrderBlock shape. Trader use: gap-fill targets — bullish FVG below = likely magnet for a pullback; bearish FVG above = likely magnet for a rally before reversal.
+Unmitigated Fair Value Gaps. They use the shared price-zone shape. Some SMC methods watch for later gap revisits, but Wickworks does not predict a fill or reversal.
 
 - **Params:** none.
 - **Returns:** array of OrderBlock-shaped objects, max 15, sorted ascending by distance.
 
 ##### `bosChoch`
 
-Recent structural events. **BOS** entries say "the prior trend just continued"; **CHoCH** entries say "the prior trend just broke." A CHoCH followed by a BOS in the new direction is the canonical SMC reversal sequence.
+Recent structural events classified as BOS or CHoCH by the configured swing algorithm. Consumers can combine the event sequence with their own trend definition and confirmation rules.
 
 - **Params:** none.
 - **Returns:** array of BosChochEvent, max 10, scanned across the trailing 50 bars.
@@ -593,7 +609,7 @@ Recent confirmed swing highs and lows from the structural pass. The raw inputs S
 
 ##### `srLevels`
 
-In-house **support / resistance levels**. Construction: take pivot levels from the 7-bar swing detector (`sw7`), keep only levels touched ≥2 times (touch = high or low within ½·ATR of the level, with bars between touches), enforce ≥3·ATR spacing so you don't get near-duplicate levels stacked, return up to 3 above price (resistance) and 3 below (support), ranked by proximity. This is what most traders mean by "S/R" — actual tested levels, not arbitrary swing points.
+In-house **support / resistance levels**. Construction uses at most the latest 500 bars, takes pivots from the 7-bar swing detector (`sw7`), requires at least two touches within half an ATR with a minimum five-bar separation, enforces three-ATR spacing between returned levels, and returns up to three levels on each side of price ranked by proximity.
 
 - **Params:** none.
 - **Returns:** array of SrLevel, up to 3 support + 3 resistance.
@@ -607,7 +623,7 @@ Compact summary of the chart's range: last 20 bars vs the full submitted history
 
 ##### `liquidity`
 
-Equal-high / equal-low clusters where stop orders likely sit. Price often runs through these before reversing ("liquidity sweep") — a classic SMC trade-trigger pattern.
+Equal-high and equal-low clusters detected from swing levels within the configured range tolerance. Some SMC methods call these liquidity areas, but Wickworks does not observe orders or predict a sweep or reversal.
 
 | Param          | Type        | Default | Description                                        |
 | -------------- | ----------- | ------: | -------------------------------------------------- |
@@ -618,23 +634,23 @@ Equal-high / equal-low clusters where stop orders likely sit. Price often runs t
 
 ##### `previousHighLow`
 
-Prior-session / prior-period high and low markers (e.g. yesterday's daily H/L). High-attention reference levels — institutions and algos commonly target them.
+High and low markers from the immediately completed fixed UTC aggregation period. This is not an exchange-session calculation.
 
 | Param       | Type   | Default | Description                                              |
 | ----------- | ------ | ------: | -------------------------------------------------------- |
-| `timeFrame` | string |  `"1D"` | Pandas resample frequency (`"1D"`, `"4H"`, `"1W"`, etc.) |
+| `timeFrame` | string | `"1D"` | Despite its legacy name, this selects the previous-range aggregation bucket, not the chart `timeframe`. It uses fixed UTC-aligned periods, not exchange sessions. Canonical values: `15m`, `30m`, `1H`, `4H`, `1D`, `1W`, `1M`. VoidAlpha's existing `15min`, `30min`, `1h`, `4h`, `1d`, `1w`, and `1ME` spellings are also accepted. Weeks run Monday through Sunday. |
 
 **Returns:** array of SmcEvent.
 
 ##### `sessions`
 
-Marks bars belonging to a named trading session (London / NY / Tokyo / Sydney etc.). Use to filter signals to a specific session, or to overlay session-open/close moments.
+Marks bars inside a fixed UTC clock window. Named windows do not use exchange calendars and do not adjust for holidays or daylight saving time.
 
 | Param       | Type              |    Default | Description                  |
 | ----------- | ----------------- | ---------: | ---------------------------- |
-| `session`   | string            | `"London"` | Session name                 |
-| `startTime` | `"HH:MM"` \| null | `start_time` | Override session start (UTC) |
-| `endTime`   | `"HH:MM"` \| null | `end_time`   | Override session end (UTC)   |
+| `session`   | string            | `"London"` | Named UTC session window. Use `"Custom"` for another window. |
+| `startTime` | `"HH:MM"` \| null | `null` | Required UTC start time for `"Custom"`; rejected for named sessions. |
+| `endTime`   | `"HH:MM"` \| null | `null` | Required UTC end time for `"Custom"`; rejected for named sessions. |
 
 **Returns:** array of SmcEvent.
 
@@ -671,9 +687,8 @@ All are parameterless.
 | ------------ | ------------ | ------- | -------- | ------------------------------------------------------------------------------------- |
 | `bars`       | array of Bar | —       | **yes**  | OHLC(V) bars in chronological order. `len(bars) <= MAX_BARS` (default 5000).          |
 | `indicators` | object       | —       | **yes**  | Map of `outputKey → spec`. ≥ 1 entry.                                                 |
-| `symbol`     | string       | `""`    | no       | Echoed back in the response.                                                          |
-| `timeframe`  | string       | `""`    | no       | Echoed back in the response.                                                          |
-| `recentBars` | integer ≥ 1  | `10`    | no       | Reserved for future signal-tagging windows. Currently inert — no output type is recency-tagged. |
+| `symbol`     | string       | `""`    | no       | Caller-supplied instrument label, echoed unchanged.                                   |
+| `timeframe`  | string       | `""`    | no       | Opaque chart bar interval label, such as `H4`. Wickworks echoes it and attaches it to summaries, but does not parse it or use it to bucket bars. Calculations use the submitted values and timestamps. |
 
 **Bar shape:**
 
@@ -681,8 +696,7 @@ All are parameterless.
 | ------------------------------ | ----------- | ------- | -------- | ---------------------------------------------------------------------------------------------------------- |
 | `time`                         | integer     | —       | **yes**  | UTC unix seconds                                                                                           |
 | `open`, `high`, `low`, `close` | number      | —       | **yes**  | OHLC prices                                                                                                |
-| `tickVolume`                   | integer ≥ 0 | `0`     | no       | Canonical volume field. All volume-based indicators (VWAP, OBV, VWMA, MFI, CMF, AD, ADOSC, KVO) read this. |
-| `realVolume`                   | integer ≥ 0 | `0`     | no       | Accepted for forward-compat. Indicator math currently reads `tickVolume`, not this.                        |
+| `volume`                       | number ≥ 0  | required | **yes**  | Caller-selected activity or volume series. Wickworks does not interpret vendor-specific volume types.     |
 
 **Spec value for each `indicators` entry:**
 
@@ -782,7 +796,7 @@ Everything `POST /` does is also available over the [Model Context Protocol](htt
 | `health` | — | `GET /health` |
 | `list_indicators` | — | the registered indicator types (the keys `compute` accepts) |
 | `metadata` | — | `GET /metadata` |
-| `compute` | `bars`, `indicators`, `timeframe?`, `symbol?`, `recentBars?` | `POST /` (same envelope back) |
+| `compute` | `bars`, `indicators`, `timeframe?`, `symbol?` | `POST /` (same envelope back) |
 
 ```bash
 # Native remote MCP (Claude Code, Cursor, … — no bridge needed)
@@ -870,13 +884,11 @@ Stateless. No DB. No queues. No external calls. Bars in → JSON out. Horizontal
 
 ```bash
 make help          # list all targets
-make install       # uv sync from lockfile
-make dev           # uvicorn with --reload
 make run           # production-style uvicorn in the dev container
 make test          # full suite (unit + docker integration)
 make test-unit     # in-process only — fast feedback loop
 make test-docker   # docker-in-docker integration tests
-make lint          # flake8 + mypy + pyright
+make lint          # flake8 + mypy
 make format        # isort + black
 make check         # lint + tests
 ```
@@ -889,7 +901,7 @@ Wickworks uses `uv`'s `exclude-newer` to refuse any package version published af
 make pkg-add PKG=foo==1.2.3   # bump exclude-newer, then uv add
 make pkg-remove PKG=foo       # bump exclude-newer, then uv remove
 make pkg-update PKG=foo       # bump exclude-newer, then uv lock --upgrade-package
-make pkg-lock                 # bump exclude-newer, then uv lock
+make pkg-lock                 # refresh the lock using the current exclude-newer cutoff
 make pkg-upgrade              # bump exclude-newer + lock --upgrade everything
 ```
 
@@ -897,7 +909,7 @@ Never hand-edit `[tool.uv].exclude-newer` unless you know what you're doing. The
 
 ### Optional `ta` extras
 
-`pandas-ta` and `smartmoneyconcepts` pin conflicting transitive deps. They're declared in the `[ta]` optional-dependencies group but installed **without** resolution (the Dockerfile does this at build time, so you never have to think about it).
+`pandas-ta` and `smartmoneyconcepts` pin conflicting transitive dependencies. The Dockerfiles install them **without** dependency resolution. They are deliberately absent from `[project.dependencies]`.
 
 ## Testing philosophy
 
@@ -907,7 +919,7 @@ The test suite is the receipts. Three categories:
 2. **smc_fast parity** — wickworks ships a numba-accelerated port of `smartmoneyconcepts`. Eight parity tests prove the fast path produces byte-identical results to the upstream library on the same inputs.
 3. **Pipeline contract tests** — determinism (same bars → same bytes), append-stability (causal indicators don't change historical values when new bars arrive), warmup-region None counts, indicator isolation (requesting two together == requesting separately), HTTP error paths, volume field contract.
 
-Run `make test-unit` for the fast loop (~20s, 280+ tests). Run `make test` for the full thing including a docker-in-docker integration build.
+Run `make test-unit` for the fast loop, currently 370 tests. Run `make test` for the full 377-test suite, including seven docker-in-docker integration tests.
 
 ## License
 

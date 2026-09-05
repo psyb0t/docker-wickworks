@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from _helpers import (  # type: ignore[import-not-found]
-    monotone_down_bars,
-    monotone_up_bars,
-    post,
-)
+from _helpers import monotone_down_bars, monotone_up_bars, post  # type: ignore[import-not-found]
 
 
 def test_vortex_plus_dominant_on_uptrend() -> None:
