@@ -84,7 +84,7 @@ curl -s http://localhost:8000/health
 ```
 
 ```json
-{ "ok": true, "version": "0.7.0" }
+{ "ok": true, "version": "0.7.1" }
 ```
 
 ### `GET /metadata`
@@ -815,7 +815,7 @@ The MCP transport's DNS-rebinding Host check is disabled so the endpoint works b
 
 ## Agent integrations
 
-The [skill](.agents/skills/wickworks) works in any agent that reads `.agents/skills/`, and installs natively in the clients below.
+The [skill](.agents/skills/wickworks) works in any agent that reads `.agents/skills/` (such as [peen](https://github.com/psyb0t/peen)), and installs natively in the clients below.
 
 ### Claude Code
 
