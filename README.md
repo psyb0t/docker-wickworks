@@ -4,6 +4,7 @@
 [![version](https://raw.githubusercontent.com/psyb0t/docker-wickworks/badges/version.svg)](https://github.com/psyb0t/docker-wickworks/releases)
 [![license](https://raw.githubusercontent.com/psyb0t/docker-wickworks/badges/license.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/psyb0t/wickworks?style=flat-square)](https://hub.docker.com/r/psyb0t/wickworks)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/psyb0t/docker-wickworks)
 
 The dumb-as-rocks OHLC analyzer. You throw bars at it over HTTP, it throws indicators and SMC objects back. That's the whole product. No database, no queue, no state, no opinions, no "AI-powered signals," no upsell to a $97/mo Discord. Just primitives.
 
