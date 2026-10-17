@@ -81,3 +81,6 @@ profile.out
 .tool-versions
 .python-version
 .nvmrc
+
+# Review receipt for the local release script.
+git-update.sh.debot
