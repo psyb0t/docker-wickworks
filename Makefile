@@ -4,6 +4,8 @@ DEV_IMAGE := psyb0t/wickworks-dev:latest
 TEST_IMAGE := psyb0t/wickworks:test
 
 PYPROJECT := pyproject.toml
+DOCS_SITE := .testing/docs-site
+JEKYLL_IMAGE := ghcr.io/actions/jekyll-build-pages:v1.0.13@sha256:6791ebfd912185ed59bfb5fb102664fa872496b79f87ff8b9cfba292a7345041
 BUMP_HOST := bash scripts/bump_exclude_newer.sh $(PYPROJECT)
 
 # Sandbox: everything dev-side runs INSIDE the dev image. The full env is
@@ -43,7 +45,7 @@ DEV_RUN_DIND := docker run --rm \
 
 .PHONY: help dev-image test-image shell \
         pkg-lock pkg-upgrade pkg-add pkg-remove pkg-update \
-        run test test-unit test-docker lint format check clean
+        run test test-unit test-docker lint format check docs clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -120,6 +122,21 @@ format: dev-image ## Format
 	$(DEV_RUN) black src tests
 
 check: lint test ## Lint + all tests
+
+# Builds docs/ with the image GitHub Pages uses, so the local result matches
+# the published site. The output directory is gitignored.
+docs: ## Build the documentation site into .testing/docs-site
+	@mkdir -p "$(DOCS_SITE)"
+	docker run --rm \
+		-u $(UID):$(GID) \
+		-e HOME=/tmp \
+		-e GITHUB_WORKSPACE=/work \
+		-e GITHUB_REPOSITORY=psyb0t/docker-wickworks \
+		-e INPUT_SOURCE=docs \
+		-e INPUT_DESTINATION="$(DOCS_SITE)" \
+		-e INPUT_VERBOSE=false \
+		-v "$(CURDIR):/work" \
+		$(JEKYLL_IMAGE)
 
 clean: ## Remove build / cache artifacts (host-side)
 	rm -rf build dist *.egg-info .pytest_cache .mypy_cache .ruff_cache .venv

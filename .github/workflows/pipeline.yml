@@ -1,51 +1,113 @@
 name: pipeline
 
+# Every branch push runs lint and the full test suite, including the Docker
+# integration tests. A push to main then builds the image and publishes
+# :latest and :sha-<commit>. A v* tag waits for that commit's main run to
+# succeed, promotes the same image digest to the release tag without
+# rebuilding, cuts the GitHub release, and publishes the skill, the OpenClaw
+# plugin and the MCP Registry entry.
 on: [push]
 
+permissions: {}
+
 jobs:
+  # Lint and tests. Both targets run their tools in the dev container, so the
+  # runner needs only Docker and Make, and neither needs credentials.
+  code:
+    if: "!startsWith(github.ref, 'refs/tags/')"
+    permissions:
+      contents: read
+      security-events: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/code-workflow.yml@master
+    with:
+      lint_command: "make lint"
+      test_command: "make test"
+
   badges:
-    if: github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/')
+    needs: [code, wait]
+    if: "always() && ((github.ref_name == github.event.repository.default_branch && needs.code.result == 'success') || (startsWith(github.ref, 'refs/tags/') && needs.wait.result == 'success'))"
     permissions:
       contents: write
     uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
 
+  # The called workflow builds only on main/master or tags, so other branches
+  # stop after the code job.
   call-docker-image-workflow:
+    needs: [code]
+    if: "!startsWith(github.ref, 'refs/tags/')"
     permissions:
       contents: write # GitHub Release
       security-events: write # upload the Grype SARIF to the Security tab
     uses: psyb0t/reusable-github-workflows/.github/workflows/docker-image-workflow.yml@master
-
     with:
       repository_name: psyb0t/wickworks
+      push_sha_tag: true
+      create_release: false
       target_platforms: "linux/amd64,linux/arm64"
       scan_severity: "high"
-      # Report scan findings to the Security tab but don't fail the run, so the
-      # clawhub publish job below can depend on this workflow succeeding.
+      # Report scan findings to the Security tab without failing the run, so
+      # a tag release can still promote this build.
       scan_fail_build: false
-
     secrets:
       dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  # Publish the skill (.agents/skills/) + plugin (.agents/plugins/) to ClawHub.
-  # Tag pushes ONLY, and only after the Docker image build/push + GitHub release
-  # have succeeded (needs the docker-image workflow, which does both).
-  publish-to-clawhub:
-    needs: [call-docker-image-workflow]
+  wait:
     if: startsWith(github.ref, 'refs/tags/')
-    uses: psyb0t/reusable-github-workflows/.github/workflows/clawhub-publish.yml@master
+    permissions:
+      actions: read
+    uses: psyb0t/reusable-github-workflows/.github/workflows/wait-for-default-branch.yml@master
 
+  docker-promote:
+    needs: [wait]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      # The called workflow's release job asks for write even when
+      # create_release turns it off, and GitHub checks that up front.
+      contents: write
+      security-events: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/docker-image-workflow.yml@master
+    with:
+      repository_name: psyb0t/wickworks
+      target_platforms: "linux/amd64,linux/arm64"
+      promote_on_tag: true
+      # The release job below cuts the release from the tag's own notes.
+      create_release: false
+      scan_severity: "high"
+      scan_fail_build: false
+    secrets:
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  release:
+    needs: [docker-promote]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/release-workflow.yml@master
+
+  # Publish the skill and the OpenClaw MCP bridge plugin to ClawHub once the
+  # release and the image they point at exist.
+  publish-to-clawhub:
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
+    uses: psyb0t/reusable-github-workflows/.github/workflows/clawhub-publish.yml@master
+    with:
+      skill_names: '["wickworks"]'
+      plugin_names: '["wickworks"]'
     secrets:
       clawhub_token: ${{ secrets.CLAWHUB_TOKEN }}
 
-  # Publish the server to the official MCP Registry (registry.modelcontextprotocol.io)
-  # from server.json. Tag pushes ONLY, after the image is built + pushed (the
-  # registry verifies the io.modelcontextprotocol.server.name LABEL on the image).
-  # Secretless: authenticates via GitHub OIDC to the io.github.psyb0t/* namespace.
+  # Publish server.json to the official MCP Registry. The registry checks the
+  # io.modelcontextprotocol.server.name LABEL on the promoted image.
+  # Secretless: authenticates through GitHub OIDC to the io.github.psyb0t/*
+  # namespace.
   publish-to-mcp-registry:
-    needs: [call-docker-image-workflow]
+    needs: [release]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
-      id-token: write # secretless OIDC auth to the MCP registry
+      id-token: write # secretless OIDC auth to the registry
       contents: read
     uses: psyb0t/reusable-github-workflows/.github/workflows/mcp-registry-publish.yml@master

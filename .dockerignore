@@ -21,3 +21,4 @@ docs
 .idea
 .vscode
 .telemetry/
+.testing/

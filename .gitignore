@@ -41,8 +41,8 @@ coverage.xml
 *.swo
 
 # Local scratch
-AGENTS.md
 CODEX.local.md
+*.local.json
 .research_files/
 .agent_notes/
 .agent_knowledge/

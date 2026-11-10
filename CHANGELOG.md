@@ -4,6 +4,13 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.7.2 (2026-11-10)
+
+- The documentation is published at [psyb0t.github.io/docker-wickworks](https://psyb0t.github.io/docker-wickworks/). The API reference, every indicator and SMC primitive, MCP, configuration and the architecture moved there from the README, which keeps the quick start.
+- The agent skill no longer lists a `slope` indicator, and its setup reference runs a clone with `make run` in the dev image instead of a `make install` target that does not exist.
+- CI runs lint and the full test suite, Docker integration tests included, on every branch push. A push to `main` also publishes `psyb0t/wickworks:sha-<commit>`, and a release tag no longer rebuilds the image: it waits for that commit's `main` run to pass and promotes the same image.
+- The funding links include Buy Me a Coffee, and `AGENTS.md` plus the project rules in `.agents/rules/` for coding agents are committed.
+
 ## v0.7.1 (2026-10-10)
 
 Documentation only. The README's agent integrations section names [peen](https://github.com/psyb0t/peen) as an example of an agent that reads `.agents/skills/`.

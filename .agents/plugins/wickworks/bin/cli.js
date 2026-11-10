@@ -3,7 +3,7 @@
 // running wickworks server's Streamable-HTTP endpoint (`$WICKWORKS_URL/mcp/`),
 // authenticating with `$WICKWORKS_TOKEN` when a fronting proxy requires it.
 //
-// stdout IS the MCP protocol channel, so diagnostics go to stderr only — the
+// stdout IS the MCP protocol channel, so diagnostics go to stderr only. The
 // sole output here is a fatal pre-launch console.error (user-facing CLI
 // output). The token is passed to the proxy as an argv header, never logged.
 import { spawnSync } from "node:child_process";
@@ -22,7 +22,7 @@ if (!base) {
 Point this bridge at your running wickworks server, e.g.:
   export WICKWORKS_URL=http://localhost:8000
 
-wickworks is self-hosted — see https://github.com/psyb0t/docker-wickworks`,
+wickworks is self-hosted, see https://github.com/psyb0t/docker-wickworks`,
   );
   process.exit(1);
 }
