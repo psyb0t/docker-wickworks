@@ -5,5 +5,4 @@
 - Standard indicators get a closed-form reference in `tests/_helpers.py` written in plain numpy/pandas (no `pandas_ta`) and a last-bar comparison on the real fixture `tests/fixtures/eurusd_h1.json` with `assert_last_bar_matches`. A new indicator gets the same.
 - `tests/test_smc_fast_parity.py` proves `smc_fast` matches upstream `smartmoneyconcepts`. Any change to `smc_fast.py` must keep it green.
 - Contract tests cover determinism, append stability, warmup nulls, isolation between outputs, error paths, the volume field, the response envelope, `schema.json` parity and metadata coverage. Extend the matching file instead of starting a new one.
-- Synthetic bars come from the generators in `tests/conftest.py` and `tests/_helpers.py`. Keep them deterministic: no random data without a fixed seed.
-- Lint (`make lint`) and `make test` are part of done. Do not skip, `xfail` or loosen a tolerance to get green; fix the cause.
+- Synthetic bars come from the generators in `tests/conftest.py` and `tests/_helpers.py`.

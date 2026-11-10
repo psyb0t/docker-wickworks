@@ -13,4 +13,3 @@ Applies to `src/wickworks/server.py`, `mcp_server.py`, `schemas.py`, `compute.py
 - SMC objects and summaries read from `Context.analysis()`, which runs at most once per request. Do not call `add_all` or `smc.analyze` from a registry function directly; `tests/test_correctness_contract.py` counts the analysis runs.
 - Structural objects carry `originAt`, `confirmedAt` and `observedAsOf` (snake_case in `smc.py`). A new structural object gets the same three timestamps.
 - `GET /metadata` and the MCP `metadata` tool return `{"version": 1, "count", "entries"}`. Bump `version` only for a breaking change to the catalog shape.
-- A breaking request or response change is called out in the CHANGELOG entry of the release that makes it.
