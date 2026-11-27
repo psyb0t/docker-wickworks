@@ -51,7 +51,8 @@ Request path: client -> `POST /` or MCP `compute` -> `ComputeRequest` validation
 | `docker-compose.yml` | Example deployment of `psyb0t/wickworks:latest` |
 | `Makefile` | Every dev command; run `make help` |
 | `scripts/bump_exclude_newer.sh` | Moves `exclude-newer` to today, called by the `pkg-*` targets |
-| `docs/` | The documentation site (GitHub Pages, Jekyll, Just the Docs) |
+| `docs/` | The documentation pages |
+| `website/` | The Docusaurus site that builds `docs/`, published by `.github/workflows/docs.yml` |
 | `.agents/skills/wickworks/` | The agent skill and its `references/setup.md` |
 | `.agents/plugins/wickworks/` | The OpenClaw stdio-to-HTTP MCP bridge plugin (MIT) |
 | `.agents/.claude-plugin/`, `.agents/.codex-plugin/` | Claude Code and Codex plugin manifests |
@@ -75,7 +76,8 @@ make test-docker              # docker integration tests only
 make check                    # lint + test
 make pkg-add PKG=name==1.2.3  # bump exclude-newer, then uv add
 make pkg-lock                 # refresh uv.lock with the current exclude-newer
-make docs                     # build the documentation site into .testing/docs-site
+make docs                     # build the documentation site and check its links
+make docs-lock                # refresh website/pnpm-lock.yaml
 ```
 
 ## Project-specific landmines

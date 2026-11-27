@@ -1,8 +1,12 @@
 ---
 name: wickworks
-description: Stateless OHLC primitives service: candlestick bars in, technical indicators + Smart-Money-Concepts objects out. Single POST / takes a bars array + an indicators selection map and returns computed primitives; GET /metadata is the output-path catalog; GET /health. 67 primitives across trend (SMA/EMA + 15 more MAs, Donchian, Ichimoku), momentum (RSI, MACD, Stoch, StochRSI, ADX, MFI, CCI, Williams %R, ROC, MOM, TSI, TRIX, UO, Fisher), volatility (ATR, NATR, Bollinger, Keltner, Squeeze), volume (VWAP, VWMA, OBV, AD, ADOSC, CMF, KVO), and SMC (order blocks, fair-value gaps, BOS/CHoCH, swing structure, S/R levels, liquidity, retracements, sessions, previous-period H/L) plus pre-baked summaries. camelCase, NaN-safe JSON. Unified REST + MCP (streamable-HTTP at /mcp, tools health / list_indicators / metadata / compute). Auth-less by default. Use when the user wants technical indicators or Smart-Money-Concepts primitives computed from OHLC candlestick bars.
+description: "Stateless OHLC primitives service: candlestick bars in, technical indicators + Smart-Money-Concepts objects out. Single POST / takes a bars array + an indicators selection map and returns computed primitives; GET /metadata is the output-path catalog; GET /health. 67 primitives across trend (SMA/EMA + 15 more MAs, Donchian, Ichimoku), momentum (RSI, MACD, Stoch, StochRSI, ADX, MFI, CCI, Williams %R, ROC, MOM, TSI, TRIX, UO, Fisher), volatility (ATR, NATR, Bollinger, Keltner, Squeeze), volume (VWAP, VWMA, OBV, AD, ADOSC, CMF, KVO), and SMC (order blocks, fair-value gaps, BOS/CHoCH, swing structure, S/R levels, liquidity, retracements, sessions, previous-period H/L) plus pre-baked summaries. camelCase, NaN-safe JSON. Unified REST + MCP (streamable-HTTP at /mcp, tools health / list_indicators / metadata / compute). Auth-less by default. Use when the user wants technical indicators or Smart-Money-Concepts primitives computed from OHLC candlestick bars."
 homepage: https://github.com/psyb0t/docker-wickworks
 user-invocable: true
+permissions:
+  shell: runs `docker run` or `docker compose` to start the container and `curl` to call it
+  network: sends OHLC bars to the HTTP and MCP API at WICKWORKS_URL (default http://localhost:8000) and reads the computed results back; `docker pull` uses Docker Hub; the service itself makes no outbound calls
+  filesystem: none needed by the skill; the service reads and writes no files
 metadata:
   { "openclaw": { "emoji": "🕯️", "primaryEnv": "WICKWORKS_URL", "requires": { "bins": ["docker", "curl"] } } }
 ---
@@ -27,7 +31,7 @@ For installation, configuration, and container setup, see [references/setup.md](
 
 - **Stateless + read-only:** every call is self-contained, bars in, primitives out. wickworks stores nothing, writes no files, mutates nothing, and has **no destructive operations**. There is no state to corrupt and nothing to confirm before calling.
 - **Auth-less by default, network-exposed:** wickworks ships with no built-in auth; anyone who can reach the port can call it. Bind it to loopback (`-p 127.0.0.1:8000:8000`) and only expose it behind your own reverse proxy / VPN with auth if it needs to be reachable off-host. The MCP bridge's optional `WICKWORKS_TOKEN` is for a bearer your *proxy* enforces, not wickworks itself.
-- **Consumer of the data you send:** you hand it OHLC bars; it computes on them and returns numbers. It does not fetch, phone home, or transmit your bars anywhere. Point the skill only at a wickworks instance you (or a trusted operator) run.
+- **Consumer of the data you send:** you hand it OHLC bars; it computes on them and returns numbers. It does not fetch, phone home, or transmit your bars anywhere. The only host that receives your bars is the instance at `WICKWORKS_URL`, so point the skill only at a wickworks instance you (or a trusted operator) run, on loopback or behind your own HTTPS proxy.
 - **Bounded input:** the request is capped at `MAX_BARS` bars (default 5000); oversized requests get `413`. Every indicator needs a minimum number of bars (SMC outputs and summaries need `MIN_BARS`, default 50), or the request returns an `insufficient_bars` error listing the deficits.
 
 ## When To Use

@@ -1,7 +1,6 @@
 ---
 title: "SMC and summaries"
 description: "wickworks Smart Money Concepts outputs (order blocks, FVGs, BOS/CHoCH, swing and S/R levels, liquidity, sessions, retracements) and the last-bar summaries."
-nav_order: 6
 ---
 
 # SMC and summaries

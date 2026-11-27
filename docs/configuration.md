@@ -1,7 +1,6 @@
 ---
 title: "Configuration"
 description: "Every wickworks environment variable: LOG_LEVEL, MAX_BARS, MIN_BARS, WORKERS and DISABLE_SMC_FAST, with defaults and what each one changes."
-nav_order: 3
 ---
 
 # Configuration

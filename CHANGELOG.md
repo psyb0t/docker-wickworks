@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.7.3 (2026-11-27)
+
+- The agent skill declares what it runs and who it talks to: `docker` and `curl`, the HTTP and MCP API at `WICKWORKS_URL`, and no files. It says the instance at `WICKWORKS_URL` is the only host that receives your bars, so it should be on loopback or behind an HTTPS proxy you run. Its description is now quoted, because the unquoted text was not valid YAML front matter.
+- On a release, a bare or `:latest` reference to `psyb0t/wickworks` in the ClawHub copy of the skill becomes the release tag and digest. The repository keeps its references.
+- The documentation site moved from Jekyll to Docusaurus at the same URLs. A new `docs.yml` workflow builds it on every pull request and publishes it from `main`, `make docs` fails on a broken internal link or anchor, and `make docs-lock` refreshes the pinned dependency lockfile.
+- The image publish job runs only on pushes to the default branch. It also sets the Docker Hub repository to public and sets its short description from the GitHub description.
+- The project rules in `.agents/rules/` keep only what is specific to this repository.
+
 ## v0.7.2 (2026-11-10)
 
 - The documentation is published at [psyb0t.github.io/docker-wickworks](https://psyb0t.github.io/docker-wickworks/). The API reference, every indicator and SMC primitive, MCP, configuration and the architecture moved there from the README, which keeps the quick start.

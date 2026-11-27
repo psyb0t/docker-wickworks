@@ -4,8 +4,6 @@ DEV_IMAGE := psyb0t/wickworks-dev:latest
 TEST_IMAGE := psyb0t/wickworks:test
 
 PYPROJECT := pyproject.toml
-DOCS_SITE := .testing/docs-site
-JEKYLL_IMAGE := ghcr.io/actions/jekyll-build-pages:v1.0.13@sha256:6791ebfd912185ed59bfb5fb102664fa872496b79f87ff8b9cfba292a7345041
 BUMP_HOST := bash scripts/bump_exclude_newer.sh $(PYPROJECT)
 
 # Sandbox: everything dev-side runs INSIDE the dev image. The full env is
@@ -45,7 +43,7 @@ DEV_RUN_DIND := docker run --rm \
 
 .PHONY: help dev-image test-image shell \
         pkg-lock pkg-upgrade pkg-add pkg-remove pkg-update \
-        run test test-unit test-docker lint format check docs clean
+        run test test-unit test-docker lint format check docs docs-build docs-lock clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -123,20 +121,26 @@ format: dev-image ## Format
 
 check: lint test ## Lint + all tests
 
-# Builds docs/ with the image GitHub Pages uses, so the local result matches
-# the published site. The output directory is gitignored.
-docs: ## Build the documentation site into .testing/docs-site
-	@mkdir -p "$(DOCS_SITE)"
-	docker run --rm \
-		-u $(UID):$(GID) \
-		-e HOME=/tmp \
-		-e GITHUB_WORKSPACE=/work \
-		-e GITHUB_REPOSITORY=psyb0t/docker-wickworks \
-		-e INPUT_SOURCE=docs \
-		-e INPUT_DESTINATION="$(DOCS_SITE)" \
-		-e INPUT_VERBOSE=false \
-		-v "$(CURDIR):/work" \
-		$(JEKYLL_IMAGE)
+# The documentation site runs in a pinned Node container with install scripts
+# disabled and a seven-day dependency age gate. The build itself has no network.
+DOCS_NODE_IMAGE := node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+DOCS_CACHE := .testing/docs-cache
+DOCS_RUN := docker run --rm --init --cap-drop ALL --security-opt no-new-privileges:true \
+	--user $(UID):$(GID) -e HOME=/tmp -e COREPACK_HOME=/cache/corepack \
+	-v "$(CURDIR)/$(DOCS_CACHE):/cache" \
+	-v "$(CURDIR)/docs:/work/docs:ro" -v "$(CURDIR)/website:/work/website" -w /work/website
+
+docs: docs-build ## Build the documentation site into website/build and check its links
+
+docs-build: | $(DOCS_CACHE)
+	$(DOCS_RUN) $(DOCS_NODE_IMAGE) corepack pnpm install --frozen-lockfile --ignore-scripts --store-dir /cache/pnpm
+	$(DOCS_RUN) --network none $(DOCS_NODE_IMAGE) corepack pnpm run build
+
+docs-lock: | $(DOCS_CACHE) ## Refresh website/pnpm-lock.yaml from website/package.json
+	$(DOCS_RUN) $(DOCS_NODE_IMAGE) corepack pnpm install --lockfile-only --ignore-scripts --store-dir /cache/pnpm
+
+$(DOCS_CACHE):
+	mkdir -p "$@"
 
 clean: ## Remove build / cache artifacts (host-side)
 	rm -rf build dist *.egg-info .pytest_cache .mypy_cache .ruff_cache .venv

@@ -1,7 +1,6 @@
 ---
 title: "Architecture"
 description: "How a wickworks request flows from FastAPI or MCP through validation, the indicator registry and the shared SMC analysis pass to camelCase JSON."
-nav_order: 11
 ---
 
 # Architecture

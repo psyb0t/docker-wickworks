@@ -1,7 +1,6 @@
 ---
 title: "MCP server"
 description: "The wickworks Model Context Protocol server: stateless streamable HTTP at /mcp with health, list_indicators, metadata and compute tools, plus client setup."
-nav_order: 7
 ---
 
 # MCP server

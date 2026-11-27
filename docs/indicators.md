@@ -1,7 +1,6 @@
 ---
 title: "Indicator reference"
 description: "Every wickworks indicator series: moving averages, oscillators, trend strength, volatility, volume, bands, trailing stops and squeeze, with parameters and outputs."
-nav_order: 5
 ---
 
 # Indicator reference

@@ -1,7 +1,6 @@
 ---
 title: "Troubleshooting"
 description: "Every wickworks error message with its cause and fix: insufficient bars, too many bars, unknown indicators and parameters, bar validation and MCP errors."
-nav_order: 10
 ---
 
 # Troubleshooting

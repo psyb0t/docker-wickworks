@@ -1,10 +1,7 @@
 ---
 title: "Home"
 description: "wickworks is a stateless HTTP and MCP service: POST OHLCV bars plus the indicators you want, get back exactly those indicators and SMC objects."
-nav_order: 1
-permalink: /
-seo:
-  type: WebSite
+slug: /
 ---
 
 # wickworks

@@ -1,7 +1,6 @@
 ---
 title: "Install and run"
 description: "Run the psyb0t/wickworks Docker image with docker run or docker compose: ports, image tags, platforms, healthcheck, workers, scaling and upgrades."
-nav_order: 2
 ---
 
 # Install and run

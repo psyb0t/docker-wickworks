@@ -1,7 +1,6 @@
 ---
 title: "REST API"
 description: "The wickworks HTTP API: GET /health, GET /metadata and POST /, the bar and indicator request shapes, the response envelope and every error status."
-nav_order: 4
 ---
 
 # REST API

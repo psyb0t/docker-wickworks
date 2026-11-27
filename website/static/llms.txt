@@ -1,0 +1,16 @@
+# docker-wickworks
+
+> A stateless HTTP and MCP service that takes OHLCV bars and returns the technical indicators and Smart Money Concepts objects you ask for, and nothing else.
+
+- [docker-wickworks](https://psyb0t.github.io/docker-wickworks/): wickworks is a stateless HTTP and MCP service: POST OHLCV bars plus the indicators you want, get back exactly those indicators and SMC objects.
+- [Install and run](https://psyb0t.github.io/docker-wickworks/deployment/): Run the psyb0t/wickworks Docker image with docker run or docker compose: ports, image tags, platforms, healthcheck, workers, scaling and upgrades.
+- [Configuration](https://psyb0t.github.io/docker-wickworks/configuration/): Every wickworks environment variable: LOG_LEVEL, MAX_BARS, MIN_BARS, WORKERS and DISABLE_SMC_FAST, with defaults and what each one changes.
+- [REST API](https://psyb0t.github.io/docker-wickworks/api/): The wickworks HTTP API: GET /health, GET /metadata and POST /, the bar and indicator request shapes, the response envelope and every error status.
+- [Indicator reference](https://psyb0t.github.io/docker-wickworks/indicators/): Every wickworks indicator series: moving averages, oscillators, trend strength, volatility, volume, bands, trailing stops and squeeze, with parameters and outputs.
+- [SMC and summaries](https://psyb0t.github.io/docker-wickworks/smc/): wickworks Smart Money Concepts outputs (order blocks, FVGs, BOS/CHoCH, swing and S/R levels, liquidity, sessions, retracements) and the last-bar summaries.
+- [MCP server](https://psyb0t.github.io/docker-wickworks/mcp/): The wickworks Model Context Protocol server: stateless streamable HTTP at /mcp with health, list_indicators, metadata and compute tools, plus client setup.
+- [Agent integrations](https://psyb0t.github.io/docker-wickworks/agent-integrations/): Install the wickworks agent skill and plugins in Claude Code, Codex and OpenClaw, and bridge stdio-only MCP clients to a running wickworks server.
+- [Security](https://psyb0t.github.io/docker-wickworks/security/): What wickworks can reach and store, why it has no authentication, the MCP Host check it turns off, its input limits, and what to set up before exposing it.
+- [Troubleshooting](https://psyb0t.github.io/docker-wickworks/troubleshooting/): Every wickworks error message with its cause and fix: insufficient bars, too many bars, unknown indicators and parameters, bar validation and MCP errors.
+- [Architecture](https://psyb0t.github.io/docker-wickworks/architecture/): How a wickworks request flows from FastAPI or MCP through validation, the indicator registry and the shared SMC analysis pass to camelCase JSON.
+- [Development](https://psyb0t.github.io/docker-wickworks/development/): Work on wickworks: the Docker-only dev container, Make targets, lint, unit and Docker tests, dependency updates with exclude-newer, CI pipeline and releases.

@@ -1,7 +1,6 @@
 ---
 title: "Security"
 description: "What wickworks can reach and store, why it has no authentication, the MCP Host check it turns off, its input limits, and what to set up before exposing it."
-nav_order: 9
 ---
 
 # Security

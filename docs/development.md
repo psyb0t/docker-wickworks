@@ -1,7 +1,6 @@
 ---
 title: "Development"
 description: "Work on wickworks: the Docker-only dev container, Make targets, lint, unit and Docker tests, dependency updates with exclude-newer, CI pipeline and releases."
-nav_order: 12
 ---
 
 # Development
@@ -22,7 +21,7 @@ make test-unit     # in-process tests only
 make test          # unit + Docker integration tests
 make test-docker   # Docker integration tests only
 make check         # lint + test
-make docs          # build this documentation site into .testing/docs-site
+make docs          # build this documentation site and check its links
 make clean         # remove build and cache files
 ```
 
@@ -74,7 +73,7 @@ One change touches all of these. `tests/test_metadata.py` fails when an indicato
 
 ## Documentation
 
-This site is `docs/`, built by GitHub Pages with Jekyll and the Just the Docs theme. `make docs` builds it with the same image GitHub uses into `.testing/docs-site`. Links between pages use relative `.md` paths; links to files outside `docs/` use full GitHub URLs.
+This site is `docs/`, built with Docusaurus from `website/` and published to GitHub Pages from `main` by the `docs.yml` workflow. `make docs` builds it in a pinned Node container and fails on a broken link or anchor. After a dependency change in `website/package.json`, run `make docs-lock` to refresh the lockfile. Links between pages use relative `.md` paths; links to files outside `docs/` use full GitHub URLs.
 
 ## CI
 

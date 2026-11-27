@@ -1,7 +1,6 @@
 ---
 title: "Agent integrations"
 description: "Install the wickworks agent skill and plugins in Claude Code, Codex and OpenClaw, and bridge stdio-only MCP clients to a running wickworks server."
-nav_order: 8
 ---
 
 # Agent integrations
